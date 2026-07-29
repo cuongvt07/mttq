@@ -1,0 +1,111 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+
+  --color-navy: #0c3b6e;
+  --color-brand: #1667b8;
+  --color-brand-dark: #0f4e93;
+  --color-brand-deep: #0b3566;
+  --color-ink: #14202e;
+  --color-sky-top: #8fdcf3;
+  --color-sky-bottom: #3fa5e2;
+
+  --shadow-card: 0 4px 12px rgb(0 0 0 / 0.18);
+  --shadow-card-hover: 0 12px 24px rgb(0 0 0 / 0.28);
+  --shadow-stat: 0 8px 20px rgb(6 40 80 / 0.35);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 3.5rem;
+  }
+  body {
+    background-color: #0e2233;
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Hiệu ứng xuất hiện khi cuộn tới — bật bởi components/Reveal.tsx
+   --------------------------------------------------------------------------- */
+@layer utilities {
+  .reveal-ready [data-reveal] {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+    transition:
+      opacity 0.55s cubic-bezier(0.22, 0.61, 0.36, 1),
+      transform 0.55s cubic-bezier(0.22, 0.61, 0.36, 1);
+    transition-delay: var(--reveal-delay, 0ms);
+    will-change: opacity, transform;
+  }
+  .reveal-ready [data-reveal].is-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* viên tiêu đề trượt từ trái vào */
+  .reveal-ready [data-reveal="slide"] {
+    transform: translateX(-24px);
+  }
+
+  /* ô số liệu bật lên */
+  .reveal-ready [data-reveal="pop"] {
+    transform: translateY(14px) scale(0.9);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal-ready [data-reveal] {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Primitives dùng lại nhiều trong khu vực /admin.
+   --------------------------------------------------------------------------- */
+@layer components {
+  .adm-field {
+    @apply mb-3.5 block;
+  }
+  .adm-field > span {
+    @apply mb-1.5 block text-[0.72rem] font-bold tracking-wide text-slate-500 uppercase;
+  }
+  .adm-input {
+    @apply w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900
+           outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-200;
+  }
+  .adm-btn {
+    @apply inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-brand px-4 py-2
+           text-sm font-bold text-white transition-colors hover:bg-brand-dark
+           disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .adm-btn-ghost {
+    @apply bg-slate-100 text-slate-700 hover:bg-slate-200;
+  }
+  .adm-btn-danger {
+    @apply bg-slate-100 text-red-700 hover:bg-red-100;
+  }
+  .adm-btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+  .adm-panel {
+    @apply mb-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm;
+  }
+}

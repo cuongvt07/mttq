@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Phong trào Toàn dân chung tay bảo vệ môi trường, vì Thủ đô xanh - sạch - đẹp.">
+<title>Phong trào Toàn dân chung tay bảo vệ môi trường - Vì Thủ đô xanh - sạch - đẹp</title>
+<style>
+  :root{
+    --wrap:1240px;
+    --navy:#0c3b6e;
+    --blue:#1667b8;
+    --blue-d:#0f4e93;
+    --btn:#1f7ad6;
+    --ink:#14202e;
+    --font:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;}
+  body{margin:0;font-family:var(--font);color:var(--ink);background:#0e2233;line-height:1.5;-webkit-font-smoothing:antialiased;}
+  img{max-width:100%;display:block;}
+  a{color:inherit;text-decoration:none;}
+  h1,h2,h3,h4{margin:0;line-height:1.2;text-wrap:balance;}
+  .wrap{width:100%;max-width:var(--wrap);margin-inline:auto;padding-inline:20px;}
+
+  /* ============ NAV ============ */
+  .topnav{background:#0b3566;color:#eaf3ff;position:sticky;top:0;z-index:40;box-shadow:0 2px 10px rgba(0,0,0,.25);}
+  .topnav .wrap{display:flex;align-items:center;gap:10px;min-height:52px;flex-wrap:wrap;}
+  .topnav .logo{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.02em;font-size:.95rem;padding-right:14px;}
+  .emblem{width:34px;height:34px;flex:0 0 auto;border-radius:50%;background:radial-gradient(circle at 50% 38%,#ffd34d 0 30%,#c0161c 32% 100%);border:2px solid #ffe08a;display:grid;place-items:center;color:#c0161c;font-size:.9rem;}
+  .topnav nav{display:flex;gap:2px;flex-wrap:wrap;margin-left:auto;}
+  .topnav nav a{padding:7px 10px;border-radius:6px;font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.02em;color:#d6e6fb;white-space:nowrap;}
+  .topnav nav a:hover{background:#1667b8;color:#fff;}
+
+  /* ============ HERO ============ */
+  .hero{position:relative;overflow:hidden;background:linear-gradient(180deg,#8fdcf3 0%,#5cb9ea 45%,#3fa5e2 100%);padding-top:26px;}
+  .hero .head{text-align:center;color:var(--navy);position:relative;z-index:3;padding:6px 20px 0;}
+  .hero .head .t1{font-size:clamp(1.1rem,2.6vw,1.7rem);font-weight:900;letter-spacing:.01em;text-shadow:0 1px 0 rgba(255,255,255,.4);max-width:24ch;margin:0 auto;}
+  .hero .head .sub{display:inline-block;margin-top:12px;background:#0f66b6;color:#fff;font-weight:700;font-size:clamp(.72rem,1.5vw,.92rem);padding:7px 16px;border-radius:20px;box-shadow:0 3px 8px rgba(0,0,0,.18);}
+  /* city illustration */
+  .cityart{position:relative;z-index:2;width:100%;height:auto;display:block;margin-top:8px;}
+  /* stat boxes overlapping bottom of hero */
+  .stats{position:relative;z-index:5;margin-top:-46px;padding-bottom:22px;display:flex;gap:16px;justify-content:center;align-items:stretch;flex-wrap:wrap;}
+  .stat{background:linear-gradient(180deg,#2f86d8,#1462ad);color:#fff;border-radius:14px;padding:14px 22px;text-align:center;box-shadow:0 8px 20px rgba(6,40,80,.35);border:1px solid rgba(255,255,255,.25);min-width:200px;}
+  .stat .n{font-size:2rem;font-weight:900;line-height:1;font-variant-numeric:tabular-nums;text-shadow:0 1px 2px rgba(0,0,0,.25);}
+  .stat .l{font-size:.74rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;margin-top:6px;opacity:.95;}
+  .stat.big{background:linear-gradient(180deg,#f6a92a,#e07d12);}
+  .stat.big .n{font-size:2.4rem;}
+
+  /* ============ SECTION SHELL ============ */
+  .sec{padding:34px 0 40px;}
+  .sec .wrap{position:relative;}
+  .pill{display:inline-flex;align-items:center;gap:10px;background:#fff;border-radius:30px;padding:9px 22px 9px 12px;font-weight:900;color:var(--blue-d);box-shadow:0 4px 10px rgba(0,0,0,.18);font-size:clamp(.85rem,1.8vw,1.05rem);text-transform:uppercase;letter-spacing:.01em;margin-bottom:22px;}
+  .pill .emblem{width:30px;height:30px;}
+  .home-btn{position:absolute;right:20px;bottom:-8px;background:var(--btn);color:#fff;font-weight:800;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em;padding:8px 16px;border-radius:8px;box-shadow:0 4px 10px rgba(0,0,0,.2);display:inline-flex;align-items:center;gap:6px;}
+  .home-btn:hover{background:#0f5cb0;}
+
+  /* grid of unit cards */
+  .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;}
+  .card{background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.18);transition:transform .16s ease;}
+  .card:hover{transform:translateY(-4px);}
+  .card .thumb{aspect-ratio:4/3;display:grid;place-items:center;background:linear-gradient(135deg,#cfe0ef,#a9c6e0);color:#5a7089;font-size:.72rem;font-weight:700;text-align:center;padding:8px;}
+  .card .thumb.noimg{background:linear-gradient(135deg,#f3e7c8,#e9d6a6);}
+  .card .thumb .em{width:52px;height:52px;border-radius:50%;background:radial-gradient(circle at 50% 38%,#ffd34d 0 30%,#c0161c 32% 100%);border:2px solid #ffe08a;}
+  .card .label{background:var(--blue);color:#fff;font-weight:700;font-size:.82rem;text-align:center;padding:8px 6px;line-height:1.25;min-height:42px;display:flex;align-items:center;justify-content:center;}
+
+  /* featured (orange) media row */
+  .media{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+  .mcard{background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.18);}
+  .mcard .thumb{aspect-ratio:16/10;display:grid;place-items:center;background:linear-gradient(135deg,#e7efd6,#c6d9a6);color:#5c6b45;font-weight:700;font-size:.74rem;text-align:center;padding:8px;}
+  .mcard .cap{padding:10px 12px;font-size:.82rem;font-weight:600;color:#243447;line-height:1.35;}
+  .mcard.portrait .thumb{aspect-ratio:3/4;background:linear-gradient(135deg,#f6c67a,#e79a3c);color:#5a3a12;}
+
+  /* ============ FOOTER ============ */
+  footer{background:#0b2a47;color:#bcd3ea;text-align:center;padding:26px 20px;font-size:.85rem;}
+  footer b{color:#fff;}
+
+  /* ============ RESPONSIVE ============ */
+  @media(max-width:1000px){
+    .grid{grid-template-columns:repeat(4,1fr);}
+    .media{grid-template-columns:repeat(2,1fr);}
+  }
+  @media(max-width:720px){
+    .grid{grid-template-columns:repeat(3,1fr);}
+    .stat{min-width:150px;}
+    .topnav nav{display:none;}
+  }
+  @media(max-width:480px){
+    .grid{grid-template-columns:repeat(2,1fr);}
+    .media{grid-template-columns:1fr;}
+    .home-btn{position:static;display:inline-flex;margin-top:14px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= NAV ================= -->
+<div class="topnav">
+  <div class="wrap">
+    <div class="logo"><span class="emblem">★</span><span>THÀNH PHỐ HÀ NỘI</span></div>
+    <nav id="nav"><a href="#top">Trang chủ</a><a href="#featured">Giới thiệu</a></nav>
+  </div>
+</div>
+
+<!-- ================= HERO ================= -->
+<header class="hero" id="top">
+  <div class="head">
+    <div class="t1">PHONG TRÀO “TOÀN DÂN CHUNG TAY BẢO VỆ MÔI TRƯỜNG,<br>VÌ THỦ ĐÔ XANH – SẠCH – ĐẸP”</div>
+    <div class="sub">HÀ NỘI CHUNG TAY HÀNH ĐỘNG VÌ KHÔNG KHÍ SẠCH VÀ GIAO THÔNG XANH</div>
+  </div>
+
+  <!-- green-city illustration (thay bằng ảnh banner thật nếu muốn) -->
+  <svg class="cityart" viewBox="0 0 1240 300" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
+    <defs>
+      <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#8fdcf3"/><stop offset="1" stop-color="#3fa5e2"/>
+      </linearGradient>
+    </defs>
+    <rect width="1240" height="300" fill="url(#sky)"/>
+    <circle cx="1080" cy="70" r="34" fill="#ffe58a" opacity=".85"/>
+    <!-- buildings -->
+    <g fill="#ffffff" opacity=".92">
+      <rect x="120" y="150" width="70" height="110" rx="4"/>
+      <rect x="200" y="120" width="54" height="140" rx="4"/>
+      <rect x="262" y="165" width="60" height="95" rx="4"/>
+      <rect x="980" y="135" width="60" height="125" rx="4"/>
+      <rect x="1048" y="160" width="48" height="100" rx="4"/>
+      <rect x="1104" y="120" width="56" height="140" rx="4"/>
+    </g>
+    <g fill="#cfeafc">
+      <rect x="132" y="164" width="10" height="12"/><rect x="150" y="164" width="10" height="12"/><rect x="168" y="164" width="10" height="12"/>
+      <rect x="132" y="188" width="10" height="12"/><rect x="150" y="188" width="10" height="12"/><rect x="168" y="188" width="10" height="12"/>
+      <rect x="994" y="150" width="10" height="12"/><rect x="1012" y="150" width="10" height="12"/>
+      <rect x="1118" y="140" width="10" height="12"/><rect x="1136" y="140" width="10" height="12"/>
+    </g>
+    <!-- wind turbine -->
+    <g stroke="#ffffff" stroke-width="5" fill="#ffffff">
+      <line x1="900" y1="120" x2="900" y2="230"/>
+      <circle cx="900" cy="120" r="7"/>
+      <path d="M900 120 L900 78 M900 120 L936 141 M900 120 L864 141" stroke-width="6"/>
+    </g>
+    <!-- trees -->
+    <g>
+      <g transform="translate(360,190)"><rect x="-4" y="30" width="8" height="40" fill="#7a5230"/><circle cx="0" cy="20" r="34" fill="#3fa845"/><circle cx="-22" cy="34" r="24" fill="#54bd59"/><circle cx="22" cy="34" r="24" fill="#54bd59"/></g>
+      <g transform="translate(840,196)"><rect x="-4" y="26" width="8" height="40" fill="#7a5230"/><circle cx="0" cy="16" r="30" fill="#3fa845"/><circle cx="-20" cy="30" r="22" fill="#54bd59"/><circle cx="20" cy="30" r="22" fill="#54bd59"/></g>
+    </g>
+    <!-- ground -->
+    <path d="M0 262 Q620 244 1240 262 L1240 300 L0 300 Z" fill="#5cc15f"/>
+    <path d="M0 276 Q620 262 1240 276 L1240 300 L0 300 Z" fill="#46ac49"/>
+    <!-- people + bikes silhouettes -->
+    <g fill="#0c5a86">
+      <g transform="translate(470,232)"><circle cx="0" cy="0" r="6"/><rect x="-4" y="6" width="8" height="18" rx="3"/><rect x="-4" y="24" width="4" height="14"/><rect x="1" y="24" width="4" height="14"/></g>
+      <g transform="translate(560,234)"><circle cx="26" cy="12" r="10" fill="none" stroke="#0c5a86" stroke-width="3"/><circle cx="-14" cy="12" r="10" fill="none" stroke="#0c5a86" stroke-width="3"/><path d="M-14 12 L6 12 L18 -6 L26 12" fill="none" stroke="#0c5a86" stroke-width="3"/><circle cx="10" cy="-14" r="5"/></g>
+      <g transform="translate(700,232)"><circle cx="0" cy="0" r="6"/><rect x="-4" y="6" width="8" height="18" rx="3"/><rect x="-4" y="24" width="4" height="14"/><rect x="1" y="24" width="4" height="14"/></g>
+    </g>
+  </svg>
+
+  <!-- stat boxes -->
+  <div class="wrap">
+    <div class="stats">
+      <div class="stat"><div class="n">126</div><div class="l">Xã, phường tham gia phong trào</div></div>
+      <div class="stat big"><div class="n">1.075.590</div><div class="l">Người dân Thủ đô tham gia hưởng ứng ngày 04/6/2026</div></div>
+      <div class="stat"><div class="n">5.370</div><div class="l">Khu dân cư, tổ dân phố tham gia phong trào</div></div>
+    </div>
+  </div>
+</header>
+
+<!-- ================= FEATURED (MTTQ) ================= -->
+<section class="sec" id="featured" style="background:linear-gradient(180deg,#ffb638,#ff8f1f);">
+  <div class="wrap">
+    <div class="pill"><span class="emblem">★</span>Mặt trận Tổ quốc Việt Nam TP. Hà Nội</div>
+    <div class="media">
+      <div class="mcard"><div class="thumb">Video / ảnh 1</div><div class="cap">Phát động toàn dân chung tay tham gia bảo vệ môi trường, giữ gìn Thủ đô xanh.</div></div>
+      <div class="mcard"><div class="thumb">Video / ảnh 2</div><div class="cap">Kế hoạch chung tay vì môi trường xanh và giao thông xanh của Thủ đô.</div></div>
+      <div class="mcard portrait"><div class="thumb">Ảnh dọc</div><div class="cap">Hà Nội chung tay hành động vì không khí sạch.</div></div>
+      <div class="mcard"><div class="thumb">Ảnh</div><div class="cap">Sản phẩm truyền thông của phong trào.</div></div>
+    </div>
+    <a class="home-btn" href="#top">▲ Trang chủ</a>
+  </div>
+</section>
+
+<!-- ================= CÁC CỤM (render bằng JS) ================= -->
+<main id="clusters"></main>
+
+<footer>
+  <b>PHONG TRÀO TOÀN DÂN CHUNG TAY BẢO VỆ MÔI TRƯỜNG, VÌ THỦ ĐÔ XANH – SẠCH – ĐẸP</b><br>
+  © 2026 — Trang thông tin phong trào. Thay logo, ảnh và tên đơn vị của bạn trong file này.
+</footer>
+
+<script>
+/* ============================================================
+   DỮ LIỆU CÁC CỤM — SỬA Ở ĐÂY
+   - name : tiêu đề khối
+   - color: [màu trên, màu dưới] nền khối
+   - units: danh sách đơn vị. Mỗi đơn vị:
+       { label:"Tên phường/xã", img:"anh.jpg" }   -> có ảnh
+       { label:"Tên phường/xã" }                  -> chưa có ảnh (hiện con dấu)
+   Thêm/bớt cụm hoặc đơn vị tuỳ ý.
+   ============================================================ */
+var CLUSTERS = [
+  { name:"Các đơn vị Cụm 1", color:["#e23b3b","#b81f1f"], units:[
+    {label:"Phường Cửa Nam"},{label:"Phường Hàng Đào"},{label:"Phường Hoàn Kiếm"},{label:"Phường Ngọc Hà"},{label:"Phường Ba Đình"},
+    {label:"Phường Kim Mã"},{label:"Phường Giảng Võ"},{label:"Phường Ô Chợ Dừa"},{label:"Phường Láng"},{label:"Phường Đống Đa"} ]},
+  { name:"Các đơn vị Cụm 2", color:["#f39325","#d9741a"], units:[
+    {label:"Phường Văn Miếu"},{label:"Phường Khâm Thiên"},{label:"Phường Trung Liệt"},{label:"Phường Thịnh Quang"},{label:"Phường Cát Linh"},
+    {label:"Phường Quốc Tử Giám"},{label:"Phường Phương Liên"},{label:"Phường Nam Đồng"} ]},
+  { name:"Các đơn vị Cụm 3", color:["#f2b418","#e09b10"], units:[
+    {label:"Phường Ngọc Hà"},{label:"Phường Cầu Giấy"},{label:"Phường Dịch Vọng"},{label:"Phường Yên Hòa"},{label:"Phường Nghĩa Đô"},
+    {label:"Phường Quan Hoa"},{label:"Phường Mai Dịch"},{label:"Phường Trung Hòa"} ]},
+  { name:"Các đơn vị Cụm 4", color:["#3ea55b","#218a3f"], units:[
+    {label:"Phường Hà Đông"},{label:"Phường Thanh Xuân"},{label:"Phường Khương Đình"},{label:"Phường Kiến Hưng"},{label:"Phường Phương Liệt"},
+    {label:"Phường Phương Liệt"},{label:"Phường Yên Nghĩa"},{label:"Phường Mỗ Lao"},{label:"Phường Đại Mỗ"} ]},
+  { name:"Các đơn vị Cụm 5", color:["#28b0a6","#158e86"], units:[
+    {label:"Xã Gia Lâm"},{label:"Phường Việt Hưng"},{label:"Phường Bồ Đề"},{label:"Xã Bát Tràng"},{label:"Xã Kim Thanh"},
+    {label:"Xã Yên Viên"},{label:"Xã Thuận An"} ]},
+  { name:"Các đơn vị Cụm 6", color:["#4aa6e6","#1f7fca"], units:[
+    {label:"Xã Phúc Thọ"},{label:"Xã Đông Anh"},{label:"Xã Tiên Dương"},{label:"Xã Kim Chung"},{label:"Xã Hải Bối"},
+    {label:"Xã Vân Hà"},{label:"Xã Vân Nội"} ]},
+  { name:"Các đơn vị Cụm 7", color:["#3f6fd6","#2450b3"], units:[
+    {label:"Xã Sóc Sơn"},{label:"Xã Trung Giã"},{label:"Xã Thanh Trì"},{label:"Xã Tân Minh"},{label:"Xã Đông Xuân"},
+    {label:"Xã Thanh Trì"},{label:"Xã Đại Nghĩa"},{label:"Xã Thượng Phúc"} ]},
+  { name:"Các đơn vị Cụm 8", color:["#6a53c9","#4a34a8"], units:[
+    {label:"Phường Chương Mỹ"},{label:"Xã Quốc Oai"},{label:"Xã Phú Nghĩa"},{label:"Xã Xuân Mai"},{label:"Xã Đông Phú"},
+    {label:"Xã Hoàng Văn"},{label:"Xã Phú Cát"} ]},
+  { name:"Các đơn vị Cụm 9", color:["#9a45c8","#7a2fa8"], units:[
+    {label:"Xã Ứng Hòa"},{label:"Xã Vân Đình"},{label:"Xã Trầm Lộng"},{label:"Xã Sơn Công"},
+    {label:"Xã Hòa Xá"},{label:"Xã Phù Lưu"} ]},
+  { name:"Các đơn vị Cụm 10", color:["#d64a9e","#b21f7c"], units:[
+    {label:"Xã Phúc Thọ"},{label:"Xã Hoài Đức"},{label:"Xã An Khánh"},{label:"Xã Thạch Thất"},{label:"Xã Hạ Bằng"},
+    {label:"Xã Yên Bài"},{label:"Xã Tản Lĩnh"},{label:"Xã Cẩm Lĩnh"} ]},
+  { name:"Các đơn vị Cụm 11", color:["#8a97a5","#5f6b78"], units:[
+    {label:"Phường Sơn Tây"},{label:"Xã Đường Lâm"},{label:"Xã Cổ Đông"},{label:"Xã Xuân Sơn"},
+    {label:"Xã Ba Vì"},{label:"Xã Minh Châu"} ]},
+];
+
+var esc = function(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+
+function cardHTML(u){
+  var thumb = u.img
+    ? '<div class="thumb" style="background-image:url(\''+esc(u.img)+'\');background-size:cover;background-position:center"></div>'
+    : '<div class="thumb noimg"><span class="em"></span></div>';
+  return '<div class="card">'+thumb+'<div class="label">'+esc(u.label)+'</div></div>';
+}
+
+function clusterHTML(c, i){
+  var cards = c.units.map(cardHTML).join('');
+  return '<section class="sec" id="cum'+(i+1)+'" style="background:linear-gradient(180deg,'+c.color[0]+','+c.color[1]+')">'
+       + '<div class="wrap">'
+       + '<div class="pill"><span class="emblem">★</span>'+esc(c.name)+'</div>'
+       + '<div class="grid">'+cards+'</div>'
+       + '<a class="home-btn" href="#top">▲ Trang chủ</a>'
+       + '</div></section>';
+}
+
+(function(){
+  document.getElementById('clusters').innerHTML = CLUSTERS.map(clusterHTML).join('');
+  // build nav links to each cluster
+  var nav = document.getElementById('nav');
+  CLUSTERS.forEach(function(c,i){
+    var a = document.createElement('a');
+    a.href = '#cum'+(i+1);
+    a.textContent = 'Cụm '+(i+1);
+    nav.appendChild(a);
+  });
+})();
+</script>
+</body>
+</html>
