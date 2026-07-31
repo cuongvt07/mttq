@@ -30,10 +30,10 @@ export const FALLBACK_STATS: Stat[] = [
 ];
 
 export const FALLBACK_MEDIA: MediaItem[] = [
-  { id: "m1", caption: "Phát động toàn dân chung tay tham gia bảo vệ môi trường, giữ gìn Thủ đô xanh.", image_url: null, link_url: null, orientation: "landscape", sort_order: 1, is_visible: true },
-  { id: "m2", caption: "Kế hoạch chung tay vì môi trường xanh và giao thông xanh của Thủ đô.", image_url: null, link_url: null, orientation: "landscape", sort_order: 2, is_visible: true },
-  { id: "m3", caption: "Hà Nội chung tay hành động vì không khí sạch.", image_url: null, link_url: null, orientation: "portrait", sort_order: 3, is_visible: true },
-  { id: "m4", caption: "Sản phẩm truyền thông của phong trào.", image_url: null, link_url: null, orientation: "landscape", sort_order: 4, is_visible: true },
+  { id: "m1", caption: "Phát động toàn dân chung tay tham gia bảo vệ môi trường, giữ gìn Thủ đô xanh.", image_url: null, link_url: null, flipbook_url: null, orientation: "landscape", sort_order: 1, is_visible: true },
+  { id: "m2", caption: "Kế hoạch chung tay vì môi trường xanh và giao thông xanh của Thủ đô.", image_url: null, link_url: null, flipbook_url: null, orientation: "landscape", sort_order: 2, is_visible: true },
+  { id: "m3", caption: "Hà Nội chung tay hành động vì không khí sạch.", image_url: null, link_url: null, flipbook_url: null, orientation: "portrait", sort_order: 3, is_visible: true },
+  { id: "m4", caption: "Sản phẩm truyền thông của phong trào.", image_url: null, link_url: null, flipbook_url: null, orientation: "landscape", sort_order: 4, is_visible: true },
 ];
 
 const RAW_CLUSTERS: Array<{
@@ -69,6 +69,7 @@ export const FALLBACK_CLUSTERS: SiteData["clusters"] = RAW_CLUSTERS.map((c, i) =
     label,
     image_url: null,
     link_url: null,
+    flipbook_url: null,
     sort_order: j + 1,
   })),
 }));

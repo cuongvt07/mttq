@@ -168,6 +168,7 @@ export async function createUnit(form: FormData) {
     label: str(form, "label"),
     image_url: nullable(form, "image_url"),
     link_url: nullable(form, "link_url"),
+    flipbook_url: nullable(form, "flipbook_url"),
     sort_order: num(form, "sort_order"),
   });
   refresh(`/admin/clusters/${clusterId}`);
@@ -181,6 +182,7 @@ export async function updateUnit(form: FormData) {
       label: str(form, "label"),
       image_url: nullable(form, "image_url"),
       link_url: nullable(form, "link_url"),
+      flipbook_url: nullable(form, "flipbook_url"),
       sort_order: num(form, "sort_order"),
     })
     .eq("id", str(form, "id"));
@@ -201,6 +203,7 @@ export async function createMedia(form: FormData) {
     caption: str(form, "caption"),
     image_url: nullable(form, "image_url"),
     link_url: nullable(form, "link_url"),
+    flipbook_url: nullable(form, "flipbook_url"),
     orientation: str(form, "orientation") === "portrait" ? "portrait" : "landscape",
     sort_order: num(form, "sort_order"),
     is_visible: true,
@@ -216,6 +219,7 @@ export async function updateMedia(form: FormData) {
       caption: str(form, "caption"),
       image_url: nullable(form, "image_url"),
       link_url: nullable(form, "link_url"),
+      flipbook_url: nullable(form, "flipbook_url"),
       orientation: str(form, "orientation") === "portrait" ? "portrait" : "landscape",
       sort_order: num(form, "sort_order"),
       is_visible: bool(form, "is_visible"),

@@ -11,6 +11,7 @@ const NAV = [
   { href: "/admin/stats", label: "Số liệu" },
   { href: "/admin/media", label: "Ảnh nổi bật" },
   { href: "/admin/clusters", label: "Các cụm" },
+  { href: "/admin/books", label: "Sách lật" },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

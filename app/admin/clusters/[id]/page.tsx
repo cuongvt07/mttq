@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ConfirmSubmit from "@/components/admin/ConfirmSubmit";
+import FlipbookField from "@/components/admin/FlipbookField";
 import ImageField from "@/components/admin/ImageField";
+import { getBookOptions } from "@/lib/book-queries";
 import { getClusterWithUnits } from "@/lib/queries";
 import { createUnit, deleteCluster, deleteUnit, updateCluster, updateUnit } from "../../actions";
 
@@ -11,7 +13,7 @@ const COLOR_INPUT = "h-10 w-16 rounded-lg border border-slate-200 bg-white p-1";
 
 export default async function ClusterDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const cluster = await getClusterWithUnits(id);
+  const [cluster, books] = await Promise.all([getClusterWithUnits(id), getBookOptions()]);
   if (!cluster) notFound();
 
   const units = [...(cluster.units ?? [])].sort((a, b) => a.sort_order - b.sort_order);
@@ -98,6 +100,7 @@ export default async function ClusterDetailPage({ params }: { params: Promise<{ 
               <span>Liên kết (tuỳ chọn)</span>
               <input type="text" name="link_url" defaultValue={u.link_url ?? ""} placeholder="https://…" className="adm-input" />
             </label>
+            <FlipbookField defaultValue={u.flipbook_url} books={books} />
             <label className="adm-field">
               <span>Thứ tự</span>
               <input type="number" name="sort_order" defaultValue={u.sort_order} className="adm-input" />
@@ -133,6 +136,7 @@ export default async function ClusterDetailPage({ params }: { params: Promise<{ 
             <span>Liên kết (tuỳ chọn)</span>
             <input type="text" name="link_url" placeholder="https://…" className="adm-input" />
           </label>
+          <FlipbookField books={books} />
           <button type="submit" className="adm-btn">
             Thêm đơn vị
           </button>

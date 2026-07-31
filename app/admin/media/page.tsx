@@ -1,12 +1,14 @@
 import ConfirmSubmit from "@/components/admin/ConfirmSubmit";
+import FlipbookField from "@/components/admin/FlipbookField";
 import ImageField from "@/components/admin/ImageField";
+import { getBookOptions } from "@/lib/book-queries";
 import { getMediaForAdmin } from "@/lib/queries";
 import { createMedia, deleteMedia, updateMedia } from "../actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function MediaPage() {
-  const media = await getMediaForAdmin();
+  const [media, books] = await Promise.all([getMediaForAdmin(), getBookOptions()]);
   const nextOrder = (media.at(-1)?.sort_order ?? 0) + 1;
 
   return (
@@ -34,6 +36,7 @@ export default async function MediaPage() {
               <span>Liên kết (tuỳ chọn)</span>
               <input type="text" name="link_url" defaultValue={m.link_url ?? ""} placeholder="https://…" className="adm-input" />
             </label>
+            <FlipbookField defaultValue={m.flipbook_url} books={books} />
             <div className="grid gap-x-4 sm:grid-cols-2">
               <label className="adm-field">
                 <span>Khung ảnh</span>
@@ -77,6 +80,7 @@ export default async function MediaPage() {
             <span>Liên kết (tuỳ chọn)</span>
             <input type="text" name="link_url" placeholder="https://…" className="adm-input" />
           </label>
+          <FlipbookField books={books} />
           <div className="grid gap-x-4 sm:grid-cols-2">
             <label className="adm-field">
               <span>Khung ảnh</span>

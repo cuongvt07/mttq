@@ -28,6 +28,8 @@ export type Unit = {
   label: string;
   image_url: string | null;
   link_url: string | null;
+  /** Link flip-book (Heyzine…) — bấm vào thẻ sẽ mở ngay trong trang */
+  flipbook_url: string | null;
   sort_order: number;
 };
 
@@ -49,6 +51,8 @@ export type MediaItem = {
   caption: string;
   image_url: string | null;
   link_url: string | null;
+  /** Link flip-book (Heyzine…) — bấm vào thẻ sẽ mở ngay trong trang */
+  flipbook_url: string | null;
   orientation: "landscape" | "portrait";
   sort_order: number;
   is_visible: boolean;

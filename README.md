@@ -94,6 +94,53 @@ nên đổi thứ tự cụm trong admin là nền đổi theo — không cần 
 
 Trong admin, nút **Thư viện ảnh** ở mỗi ô ảnh cho chọn nhanh trong 146 ảnh đã cào.
 
+## Tin + flip-book
+
+Mỗi thẻ tin (mục "Hoạt động chung" và từng hoạt động của mỗi Ban) gồm **ảnh chính + tên tin**,
+bấm vào sẽ **mở flip-book ngay trong trang** — modal toàn màn hình nhúng iframe, đóng bằng nút
+✕ hoặc phím Esc, kèm nút "Mở tab mới".
+
+- Link đặt ở cột `flipbook_url` (bảng `units` và `media_items`), nhập trong `/admin`.
+- Chưa có `flipbook_url` thì thẻ dùng `link_url` như liên kết thường; không có cả hai thì thẻ tĩnh.
+- Thẻ có flip-book hiện nhãn 📖 ở góc ảnh.
+- Vẫn render `<a href>` thật nên Ctrl/⌘ + click mở tab mới, và tắt JS vẫn bấm được.
+- Modal đưa ra `document.body` bằng `createPortal` để không bị thanh menu sticky đè lên.
+
+Migration: [supabase/migration-flipbook.sql](supabase/migration-flipbook.sql).
+Dữ liệu demo: [supabase/demo-flipbook.sql](supabase/demo-flipbook.sql).
+
+## Module sách lật tự thiết kế (`/admin/books`)
+
+Tự dựng từng trang rồi xem dưới dạng sách lật — không cần Heyzine.
+
+**Trình soạn thảo** ([BookEditor.tsx](components/book/BookEditor.tsx)):
+khung cố định theo tỉ lệ chọn khi tạo sách (3:4, 4:3, A4, 1:1, 16:9);
+thêm khối chữ / ảnh, kéo thả, đổi kích thước bằng handle góc, xoay bằng handle tròn;
+sửa phông, cỡ chữ, màu, căn lề, giãn dòng, đậm/nghiêng; ảnh có bo góc, độ mờ, viền, cách lấp khung;
+trang có màu nền / ảnh nền; bám lưới 10px; hoàn tác/làm lại (Ctrl+Z, Ctrl+Shift+Z);
+phím mũi tên dịch chuyển, Delete xoá; lên/xuống lớp; nhân bản; **autosave** sau 1,2 giây.
+Nhiều trang: thêm / nhân bản / xoá / đổi thứ tự, có dải thumbnail.
+
+**Trình xem** (`/sach/<slug>`, [FlipViewer.tsx](components/book/FlipViewer.tsx)):
+PC mở 2 trang có hiệu ứng cong khi lật (StPageFlip qua `react-pageflip`);
+mobile 1 trang toàn màn hình, vuốt trái/phải (`usePortrait`); phím ←/→ và nút Trước/Sau.
+
+**Một render engine duy nhất** ([PageRenderer.tsx](components/book/PageRenderer.tsx)) dùng cho cả
+editor, thumbnail lẫn viewer nên WYSIWYG — trang hiển thị đúng như lúc thiết kế. Toạ độ lưu theo
+khung 800px rồi scale, nên đổi kích thước màn hình không lệch bố cục.
+
+Dữ liệu: bảng `books` + `book_pages` (`elements` là JSONB) —
+[migration-books.sql](supabase/migration-books.sql), sách demo trong
+[demo-book.sql](supabase/demo-book.sql). Ảnh upload vào bucket `media`, thư mục `books/<id>/`.
+
+Trong form tin/hoạt động, ô flip-book có sẵn dropdown chọn sách đã thiết kế
+(điền `/sach/<slug>`) hoặc dán link ngoài.
+
+Khác đặc tả: dùng DOM tuyệt đối thay vì Fabric/Konva — để editor và viewer dùng CHUNG một
+component render (yêu cầu WYSIWYG ở mục 4 của đặc tả), chữ vẫn là text thật (nét, chọn được,
+SEO) thay vì bitmap canvas. Chưa làm: crop ảnh trong editor, align/distribute nhiều khối,
+sinh ảnh bìa tự động.
+
 ## Hiệu ứng
 
 [components/Reveal.tsx](components/Reveal.tsx) mount một lần ở trang chủ, dùng `IntersectionObserver`
