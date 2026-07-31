@@ -58,12 +58,64 @@ export type BookPage = {
   elements: BookElement[];
 };
 
+export type ChromeBand = {
+  enabled: boolean;
+  /** hỗ trợ {trang} và {tong} */
+  text: string;
+  align: "left" | "center" | "right";
+  fontSize: number;
+  color: string;
+  /** đường kẻ dải ngăn cách */
+  rule: boolean;
+  ruleColor: string;
+  ruleWidth: number;
+  pageNumber?: boolean;
+  pageNumberAlign?: "left" | "center" | "right";
+};
+
+export type PageChrome = {
+  /** lề trong, tính từ mép trang */
+  margin: number;
+  /** bỏ qua trang đầu (thường là bìa) */
+  skipFirstPage: boolean;
+  header: ChromeBand;
+  footer: ChromeBand;
+};
+
+export const DEFAULT_CHROME: PageChrome = {
+  margin: 48,
+  skipFirstPage: true,
+  header: {
+    enabled: false,
+    text: "",
+    align: "center",
+    fontSize: 16,
+    color: "#7a8797",
+    rule: true,
+    ruleColor: "#d8dee6",
+    ruleWidth: 1,
+  },
+  footer: {
+    enabled: true,
+    text: "",
+    align: "left",
+    fontSize: 15,
+    color: "#7a8797",
+    rule: true,
+    ruleColor: "#d8dee6",
+    ruleWidth: 1,
+    pageNumber: true,
+    pageNumberAlign: "right",
+  },
+};
+
 export type Book = {
   id: string;
   title: string;
   slug: string;
   page_ratio: string;
   cover_url: string | null;
+  chrome: PageChrome;
   is_published: boolean;
   updated_at: string;
 };

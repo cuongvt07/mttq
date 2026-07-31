@@ -121,6 +121,12 @@ trang có màu nền / ảnh nền; bám lưới 10px; hoàn tác/làm lại (Ct
 phím mũi tên dịch chuyển, Delete xoá; lên/xuống lớp; nhân bản; **autosave** sau 1,2 giây.
 Nhiều trang: thêm / nhân bản / xoá / đổi thứ tự, có dải thumbnail.
 
+**Đầu / chân trang** ([ChromePanel.tsx](components/book/ChromePanel.tsx)): cấu hình một lần, áp dụng
+cho mọi trang — chữ cố định (chèn được `{trang}` / `{tong}`), căn lề, cỡ chữ, màu, **số trang**
+(bật/tắt, vị trí trái–giữa–phải), **đường kẻ dải** (bật/tắt, màu, độ dày), lề trong, và tuỳ chọn
+bỏ qua trang bìa. Lưu ở cột `books.chrome` (JSONB) —
+[migration-book-chrome.sql](supabase/migration-book-chrome.sql).
+
 **Trình xem** (`/sach/<slug>`, [FlipViewer.tsx](components/book/FlipViewer.tsx)):
 PC mở 2 trang có hiệu ứng cong khi lật (StPageFlip qua `react-pageflip`);
 mobile 1 trang toàn màn hình, vuốt trái/phải (`usePortrait`); phím ←/→ và nút Trước/Sau.

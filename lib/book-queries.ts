@@ -1,5 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
-import type { Book, BookPage, BookWithPages } from "./book-types";
+import { DEFAULT_CHROME, type Book, type BookPage, type BookWithPages } from "./book-types";
 
 type PageRow = {
   id: string;
@@ -40,7 +40,11 @@ export async function getBook(id: string): Promise<BookWithPages | null> {
 
   if (!data) return null;
   const { book_pages, ...book } = data as Book & { book_pages: PageRow[] };
-  return { ...book, pages: (book_pages ?? []).map(toPage) };
+  return {
+    ...book,
+    chrome: { ...DEFAULT_CHROME, ...(book.chrome ?? {}) },
+    pages: (book_pages ?? []).map(toPage),
+  };
 }
 
 export async function getBookBySlug(slug: string): Promise<BookWithPages | null> {
@@ -55,7 +59,11 @@ export async function getBookBySlug(slug: string): Promise<BookWithPages | null>
 
   if (!data) return null;
   const { book_pages, ...book } = data as Book & { book_pages: PageRow[] };
-  return { ...book, pages: (book_pages ?? []).map(toPage) };
+  return {
+    ...book,
+    chrome: { ...DEFAULT_CHROME, ...(book.chrome ?? {}) },
+    pages: (book_pages ?? []).map(toPage),
+  };
 }
 
 /** Danh sách rút gọn để chọn nhanh trong form tin/hoạt động. */

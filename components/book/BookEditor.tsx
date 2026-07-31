@@ -12,10 +12,12 @@ import {
   type BookPage,
   type BookWithPages,
   type ImageElement,
+  type PageChrome,
   type TextElement,
 } from "@/lib/book-types";
 import { createClient } from "@/utils/supabase/client";
-import { saveBookPages } from "@/app/admin/books/actions";
+import { saveBookChrome, saveBookPages } from "@/app/admin/books/actions";
+import ChromePanel from "./ChromePanel";
 import PageRenderer from "./PageRenderer";
 
 const GRID = 10;
@@ -36,6 +38,10 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
   const [message, setMessage] = useState("");
   const [canvasWidth, setCanvasWidth] = useState(560);
   const [snapOn, setSnapOn] = useState(true);
+  /** chiều cao thật (đơn vị trang) của từng khối chữ, đo từ phần tử đã render */
+  const [textHeights, setTextHeights] = useState<Record<string, number>>({});
+  const [chrome, setChrome] = useState<PageChrome>(book.chrome);
+  const chromeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const past = useRef<BookPage[][]>([]);
   const future = useRef<BookPage[][]>([]);
@@ -63,6 +69,48 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  const patchChrome = useCallback(
+    (patch: Partial<PageChrome>) => {
+      setChrome((prev) => {
+        const next = { ...prev, ...patch };
+        if (chromeTimer.current) clearTimeout(chromeTimer.current);
+        chromeTimer.current = setTimeout(async () => {
+          setStatus("saving");
+          const res = await saveBookChrome(book.id, next);
+          setStatus(res.ok ? "saved" : "error");
+          if (!res.ok) setMessage(res.error);
+        }, 900);
+        return next;
+      });
+    },
+    [book.id],
+  );
+
+  /* ------------------------------------------------------- đo chiều cao khối chữ -- */
+  useEffect(() => {
+    const root = canvasRef.current;
+    if (!root) return;
+
+    const measure = () => {
+      const next: Record<string, number> = {};
+      root.querySelectorAll<HTMLElement>("[data-el-id]").forEach((n) => {
+        // offsetHeight ở đây là đơn vị trang vì khung cha mới là thứ bị scale
+        next[n.dataset.elId!] = n.offsetHeight;
+      });
+      setTextHeights((prev) => {
+        const keys = Object.keys(next);
+        const same =
+          keys.length === Object.keys(prev).length && keys.every((k) => prev[k] === next[k]);
+        return same ? prev : next;
+      });
+    };
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    root.querySelectorAll<HTMLElement>("[data-el-id]").forEach((n) => ro.observe(n));
+    return () => ro.disconnect();
+  }, [pages, pageIndex, canvasWidth]);
 
   /* ---------------------------------------------------------------- lưu / autosave -- */
   const persist = useCallback(
@@ -374,7 +422,14 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
                 i === pageIndex ? "border-brand" : "border-slate-200 hover:border-slate-300"
               }`}
             >
-              <PageRenderer page={p} ratio={book.page_ratio} width={140} />
+              <PageRenderer
+                page={p}
+                ratio={book.page_ratio}
+                width={140}
+                chrome={chrome}
+                pageNumber={i + 1}
+                totalPages={pages.length}
+              />
               <span className="absolute top-1.5 left-1.5 rounded bg-black/60 px-1.5 text-[0.65rem] font-bold text-white">
                 {i + 1}
               </span>
@@ -438,13 +493,20 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
 
         <div className="flex justify-center rounded-xl bg-slate-200 p-3">
           <div ref={canvasRef} className="relative shadow-lg" onPointerDown={() => setSelectedId(null)}>
-            <PageRenderer page={page} ratio={book.page_ratio} width={canvasWidth} />
+            <PageRenderer
+              page={page}
+              ratio={book.page_ratio}
+              width={canvasWidth}
+              chrome={chrome}
+              pageNumber={pageIndex + 1}
+              totalPages={pages.length}
+            />
 
             {/* lớp tương tác đặt chồng, dùng toạ độ màn hình đã scale */}
             <div className="absolute inset-0">
               {page.elements.map((el) => {
                 const isSel = el.id === selectedId;
-                const h = el.type === "image" ? el.h : undefined;
+                const h = el.type === "image" ? el.h : textHeights[el.id];
                 return (
                   <div
                     key={el.id}
@@ -457,8 +519,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
                       left: el.x * scale,
                       top: el.y * scale,
                       width: el.w * scale,
-                      height: h ? h * scale : undefined,
-                      minHeight: h ? undefined : 24 * scale,
+                      height: h ? h * scale : 24 * scale,
                       transform: el.rotation ? `rotate(${el.rotation}deg)` : undefined,
                       transformOrigin: "center center",
                       cursor: "move",
@@ -634,6 +695,8 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
             </p>
           </div>
         )}
+
+        <ChromePanel chrome={chrome} onChange={patchChrome} />
 
         <button
           type="button"

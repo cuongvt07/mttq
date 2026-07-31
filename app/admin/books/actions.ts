@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { BookPage } from "@/lib/book-types";
+import type { BookPage, PageChrome } from "@/lib/book-types";
 import { slugify } from "@/lib/slug";
 import { createClient } from "@/utils/supabase/server";
 
@@ -104,4 +104,23 @@ export async function saveBookPages(
   revalidatePath(`/admin/books/${bookId}`);
   revalidatePath("/", "layout");
   return { ok: true, savedAt: new Date().toISOString() };
+}
+
+/** Lưu cấu hình đầu/chân trang (gọi từ trình soạn thảo, có debounce). */
+export async function saveBookChrome(
+  bookId: string,
+  chrome: PageChrome,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Phiên đăng nhập đã hết hạn" };
+
+  const { error } = await supabase.from("books").update({ chrome }).eq("id", bookId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/admin/books/${bookId}`);
+  revalidatePath("/", "layout");
+  return { ok: true };
 }

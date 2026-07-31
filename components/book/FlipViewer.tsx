@@ -100,9 +100,16 @@ export default function FlipViewer({ book }: { book: BookWithPages }) {
         autoSize={false}
         onFlip={(e: { data: number }) => setCurrent(e.data)}
       >
-        {book.pages.map((p) => (
+        {book.pages.map((p, i) => (
           <div key={p.id} className="bg-white">
-            <PageRenderer page={p} ratio={book.page_ratio} width={size.w} />
+            <PageRenderer
+              page={p}
+              ratio={book.page_ratio}
+              width={size.w}
+              chrome={book.chrome}
+              pageNumber={i + 1}
+              totalPages={book.pages.length}
+            />
           </div>
         ))}
       </HTMLFlipBook>

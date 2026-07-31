@@ -1,4 +1,11 @@
-import { PAGE_WIDTH, pageHeight, type BookElement, type BookPage } from "@/lib/book-types";
+import {
+  PAGE_WIDTH,
+  pageHeight,
+  type BookElement,
+  type BookPage,
+  type PageChrome,
+} from "@/lib/book-types";
+import PageChromeView from "./PageChromeView";
 
 /**
  * Render engine dùng chung cho cả trình soạn thảo và trình xem (WYSIWYG).
@@ -18,6 +25,7 @@ export function ElementView({ el }: { el: BookElement }) {
   if (el.type === "text") {
     return (
       <div
+        data-el-id={el.id}
         style={{
           ...base,
           fontSize: el.fontSize,
@@ -37,7 +45,7 @@ export function ElementView({ el }: { el: BookElement }) {
   }
 
   return (
-    <div style={{ ...base, height: el.h }}>
+    <div data-el-id={el.id} style={{ ...base, height: el.h }}>
       <img
         src={el.src}
         alt=""
@@ -60,6 +68,9 @@ export default function PageRenderer({
   page,
   ratio,
   width,
+  chrome,
+  pageNumber = 1,
+  totalPages = 1,
   className = "",
   children,
 }: {
@@ -67,6 +78,11 @@ export default function PageRenderer({
   ratio: string;
   /** bề rộng hiển thị thực tế (px) */
   width: number;
+  /** cấu hình đầu/chân trang dùng chung của sách */
+  chrome?: PageChrome;
+  /** số thứ tự trang (từ 1) — cần cho số trang ở chân trang */
+  pageNumber?: number;
+  totalPages?: number;
   className?: string;
   /** lớp phủ thêm (handle của editor) — đặt trong cùng hệ toạ độ trang */
   children?: React.ReactNode;
@@ -92,6 +108,16 @@ export default function PageRenderer({
           backgroundPosition: "center",
         }}
       >
+        {chrome ? (
+          <PageChromeView
+            chrome={chrome}
+            pageWidth={PAGE_WIDTH}
+            pageHeight={h}
+            pageNumber={pageNumber}
+            total={totalPages}
+          />
+        ) : null}
+
         {page.elements.map((el) => (
           <ElementView key={el.id} el={el} />
         ))}
