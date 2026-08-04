@@ -117,7 +117,7 @@ const anhCum = (img, h, w) => [
  * Ảnh xen kẽ nhiều kiểu cho đỡ đơn điệu: ảnh lớn ngang, ảnh nửa trái, nửa phải,
  * và cặp hai ảnh cạnh nhau.
  */
-function articleAtoms(a) {
+async function articleAtoms(a) {
   const out = [];
 
   const header = atom(
@@ -141,26 +141,23 @@ function articleAtoms(a) {
   }
   out.push(group(...mo));
 
-  // Thân bài: cứ 2 đoạn lại chèn ảnh, luân phiên nửa trái → nửa phải → cặp đôi
+  // Thân bài: ảnh luân phiên nửa trái → nửa phải → cặp đôi; chữ chảy quanh ảnh
   let kieu = 0;
   while (paras.length) {
     const doan = paras.shift();
 
-    if (!imgs.length || out.length % 2 === 0) {
+    if (!imgs.length) {
       out.push(atom(text(doan, { gap: 14 })));
       continue;
     }
 
-    if (kieu % 3 === 0) {
-      out.push(row(anhCum(imgs.shift(), 250, HALF), [text(doan, { w: HALF, gap: 12 })]));
-    } else if (kieu % 3 === 1) {
-      out.push(row([text(doan, { w: HALF, gap: 12 })], anhCum(imgs.shift(), 250, HALF)));
-    } else if (imgs.length >= 2) {
+    if (kieu % 3 === 2 && imgs.length >= 2) {
       out.push(atom(text(doan, { gap: 14 })));
       out.push(row(anhCum(imgs.shift(), 210, HALF), anhCum(imgs.shift(), 210, HALF)));
     } else {
-      out.push(atom(text(doan, { gap: 14 })));
-      out.push(atom(...anhCum(imgs.shift(), 300, CW)));
+      // gộp thêm một đoạn nữa để chữ có phần chảy tiếp bên dưới ảnh
+      const noiDung = [doan, ...(paras.length ? [paras.shift()] : [])].join("\n\n");
+      out.push(await wrapItem(imgs.shift(), kieu % 3 === 0 ? "left" : "right", noiDung, 250));
     }
     kieu++;
   }
@@ -211,6 +208,63 @@ async function heightOf(b) {
   return H.get(b);
 }
 
+/** Đo nhanh một đoạn chữ bất kỳ theo bề rộng cho trước. */
+const measureText = (content, w) =>
+  measure(text(content, { w }));
+
+/**
+ * Cắt đoạn văn thành phần vừa đúng chiều cao cho trước (chạy cạnh ảnh)
+ * và phần còn lại (chạy full chiều ngang bên dưới ảnh).
+ */
+async function splitToFit(content, w, maxH) {
+  if ((await measureText(content, w)) <= maxH) return [content, ""];
+
+  let lo = 0;
+  let hi = content.length;
+  let best = 0;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const h = await measureText(content.slice(0, mid), w);
+    if (h <= maxH) {
+      best = mid;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+
+  // lùi về khoảng trắng gần nhất để không cắt giữa từ
+  const sp = content.lastIndexOf(" ", best);
+  if (sp > 40) best = sp;
+
+  return [content.slice(0, best).trim(), content.slice(best).trim()];
+}
+
+/** Khoảng hở giữa đáy ảnh và phần chữ chạy full ngang bên dưới. */
+const WRAP_GAP = 20;
+
+/**
+ * Mục "chữ chảy quanh ảnh": ảnh nửa trang một bên, chữ chạy bên cạnh,
+ * hết ảnh thì chữ tràn ra full chiều ngang.
+ */
+async function wrapItem(img, side, content, imgH = 250) {
+  const cot = anhCum(img, imgH, HALF);
+  let colH = 0;
+  for (const b of cot) colH += (await heightOf(b)) + b.gap;
+  colH -= cot.at(-1).gap; // không tính gap cuối
+
+  const [ben, duoi] = await splitToFit(content, HALF, colH);
+
+  return {
+    type: "wrap",
+    side,
+    cot,
+    colH,
+    ben: ben ? text(ben, { w: HALF, gap: 0 }) : null,
+    duoi: duoi ? text(duoi, { gap: 14 }) : null,
+  };
+}
+
 /* ------------------------------------------------------- xếp & ngắt trang -- */
 
 /** Xếp các atom vào nhiều trang, atom nào không đủ chỗ thì đẩy sang trang sau. */
@@ -221,6 +275,9 @@ async function paginate(items, { continuedLabel } = {}) {
 
   /** chiều cao của một mục: atom xếp dọc, row lấy cột cao nhất */
   async function heightOfItem(it) {
+    if (it.type === "wrap") {
+      return it.colH + (it.duoi ? WRAP_GAP + (await heightOf(it.duoi)) + it.duoi.gap : 14);
+    }
     if (it.type === "group") {
       let h = 0;
       for (const sub of it.items) h += await heightOfItem(sub);
@@ -242,6 +299,24 @@ async function paginate(items, { continuedLabel } = {}) {
 
   /** đặt mục vào trang hiện tại tại vị trí y */
   async function place(it) {
+    if (it.type === "wrap") {
+      const xImg = it.side === "left" ? COL_L : COL_R;
+      const xTxt = it.side === "left" ? COL_R : COL_L;
+
+      let cy = y;
+      for (const b of it.cot) {
+        cur.push({ b, x: xImg, y: cy });
+        cy += (await heightOf(b)) + b.gap;
+      }
+      if (it.ben) cur.push({ b: it.ben, x: xTxt, y });
+
+      y += it.colH + WRAP_GAP;
+      if (it.duoi) {
+        cur.push({ b: it.duoi, x: M, y });
+        y += (await heightOf(it.duoi)) + it.duoi.gap;
+      }
+      return;
+    }
     if (it.type === "group") {
       for (const sub of it.items) await place(sub);
       return;
@@ -294,7 +369,7 @@ async function paginate(items, { continuedLabel } = {}) {
 const bodyPages = [];
 
 for (const a of ok) {
-  const laid = await paginate(articleAtoms(a));
+  const laid = await paginate(await articleAtoms(a));
   for (const els of laid) bodyPages.push({ article: a.key, els });
 }
 
