@@ -4,9 +4,9 @@ import LoginForm from "./LoginForm";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; error?: string }>;
 }) {
-  const { next } = await searchParams;
+  const { next, error } = await searchParams;
 
   return (
     <div className="grid min-h-screen place-items-center bg-linear-to-b from-sky-top to-sky-bottom p-5">
@@ -14,9 +14,9 @@ export default async function LoginPage({
         <Emblem className="mx-auto mb-3 size-14" />
         <h1 className="text-center text-lg font-bold">Đăng nhập quản trị</h1>
         <p className="mt-1 mb-5 text-center text-sm text-slate-500">
-          Dùng tài khoản tạo trong Supabase &gt; Authentication &gt; Users.
+          Chỉ email đã được cấp quyền mới vào được khu vực quản trị.
         </p>
-        <LoginForm next={next ?? "/admin"} />
+        <LoginForm next={next ?? "/admin"} error={error} />
       </div>
     </div>
   );

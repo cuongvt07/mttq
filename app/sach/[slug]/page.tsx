@@ -21,7 +21,7 @@ export default async function BookPage({ params }: { params: Promise<{ slug: str
   if (!book) notFound();
 
   return (
-    <main className="flex min-h-screen flex-col bg-[#101a26] px-2 py-4 sm:px-4">
+    <main className="flex h-screen flex-col overflow-hidden overscroll-none bg-[#101a26] px-2 py-3 sm:px-4">
       <h1 className="mb-3 text-center text-base font-bold text-white sm:text-lg">{book.title}</h1>
       <BookViewerClient book={book} />
     </main>

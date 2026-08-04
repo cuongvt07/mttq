@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Emblem from "@/components/Emblem";
+import { isAdminEmail } from "@/lib/admin-auth";
 import { createClient } from "@/utils/supabase/server";
 import { signOut } from "./actions";
 
@@ -22,6 +23,26 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   // Trang đăng nhập tự dựng giao diện riêng.
   if (!user) return <div className="min-h-screen bg-slate-100">{children}</div>;
+
+  // Đăng nhập được nhưng email chưa nằm trong danh sách quản trị (ví dụ vừa bị gỡ quyền).
+  if (!(await isAdminEmail(supabase, user.email))) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-slate-100 p-5">
+        <div className="w-full max-w-sm rounded-2xl bg-white p-7 text-center shadow-2xl">
+          <Emblem className="mx-auto mb-3 size-14" />
+          <h1 className="text-lg font-bold">Không có quyền truy cập</h1>
+          <p className="mt-1 mb-5 text-sm text-slate-500">
+            Tài khoản {user.email} chưa được cấp quyền quản trị.
+          </p>
+          <form action={signOut}>
+            <button type="submit" className="adm-btn w-full justify-center">
+              Đăng xuất
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900">

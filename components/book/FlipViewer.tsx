@@ -72,7 +72,10 @@ export default function FlipViewer({ book }: { book: BookWithPages }) {
   }
 
   return (
-    <div ref={wrapRef} className="flex w-full flex-col items-center gap-3">
+    <div
+      ref={wrapRef}
+      className="flex w-full min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-hidden"
+    >
       <HTMLFlipBook
         ref={flipRef}
         width={size.w}

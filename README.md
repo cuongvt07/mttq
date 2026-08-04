@@ -44,14 +44,52 @@ Trước khi chạy 2 file này trang vẫn hoạt động bình thường nhưn
 
 ## 3. Tạo tài khoản quản trị
 
-**Supabase Dashboard → Authentication → Users → Add user** (email + password, bật *Auto Confirm*).
-Đăng nhập tại `/admin/login`.
+Chạy [supabase/migration-admin-allowlist.sql](supabase/migration-admin-allowlist.sql) — file này
+tạo bảng `admin_emails` (danh sách email được quyền quản trị), hàm `public.is_admin()` và chuyển
+mọi policy ghi từ "chỉ cần đã đăng nhập" sang "phải là admin". Các user email/password đã có sẵn
+được tự thêm vào danh sách nên không ai bị khoá ngoài.
 
-> Quyền ghi được cấp cho mọi tài khoản đã đăng nhập (`authenticated`). Nếu muốn siết lại,
-> sửa các policy `authenticated write ...` trong `schema.sql`, ví dụ:
-> `using (auth.jwt() ->> 'email' = 'admin@domain.vn')`.
-> Nên tắt luôn **Authentication → Providers → Email → Allow new users to sign up**
-> để không ai tự đăng ký tài khoản.
+```bash
+node scripts/apply-sql.mjs migration-admin-allowlist.sql   # hoặc dán vào SQL Editor
+```
+
+Thêm / gỡ quản trị viên bằng SQL Editor:
+
+```sql
+insert into public.admin_emails (email, note) values ('ai-do@gmail.com', 'Tên')
+on conflict (email) do nothing;
+
+delete from public.admin_emails where email = 'ai-do@gmail.com';
+```
+
+Hai cách đăng nhập tại `/admin/login`:
+
+- **Google** — xem mục dưới.
+- **Email + mật khẩu** — **Supabase Dashboard → Authentication → Users → Add user**
+  (bật *Auto Confirm*), rồi thêm email đó vào `admin_emails`.
+
+> Nên tắt **Authentication → Providers → Email → Allow new users to sign up** để không ai tự
+> đăng ký. Với Google thì ngược lại: ai cũng tạo được user trong `auth.users`, nhưng nếu email
+> không có trong `admin_emails` thì bị đăng xuất ngay ở bước callback và RLS cũng chặn mọi thao
+> tác ghi.
+
+## 4. Bật đăng nhập Google
+
+1. **Google Cloud Console → APIs & Services → Credentials → Create credentials → OAuth client ID**,
+   loại *Web application*.
+   - *Authorized JavaScript origins*: `http://localhost:3000` và domain thật.
+   - *Authorized redirect URIs*: `https://<project-ref>.supabase.co/auth/v1/callback`
+     (lấy đúng chuỗi này trong Supabase, mục Google provider).
+2. **Supabase Dashboard → Authentication → Providers → Google**: bật, dán *Client ID* +
+   *Client Secret*, Save.
+3. **Authentication → URL Configuration**: *Site URL* trỏ về domain thật, và thêm vào
+   *Redirect URLs*: `http://localhost:3000/auth/callback`, `https://<domain-that>/auth/callback`.
+4. Khi deploy, đặt `NEXT_PUBLIC_SITE_URL=https://<domain-that>` để redirect luôn dùng đúng domain
+   (chạy local bỏ trống được — code tự lấy theo host của request).
+
+Luồng: nút Google → server action `signInWithGoogle` → Google → Supabase →
+[app/auth/callback/route.ts](app/auth/callback/route.ts) đổi `code` lấy session, đối chiếu
+`admin_emails`, không có quyền thì đăng xuất và quay lại trang đăng nhập kèm thông báo.
 
 ---
 
@@ -69,7 +107,9 @@ Trước khi chạy 2 file này trang vẫn hoạt động bình thường nhưn
 Mọi form đều dùng **Server Action** + `revalidatePath("/")` nên bấm Lưu là trang chủ cập nhật ngay.
 Ô ảnh cho phép **tải file lên Supabase Storage** (bucket `media`, công khai) hoặc dán URL có sẵn.
 
-`/admin/*` được middleware chặn nếu chưa đăng nhập ([middleware.ts](middleware.ts)).
+`/admin/*` được middleware chặn nếu chưa đăng nhập ([middleware.ts](middleware.ts)); layout admin
+chặn thêm một lớp nữa nếu email không nằm trong `admin_emails` (trường hợp vừa bị gỡ quyền mà
+session cũ còn hạn).
 
 ---
 

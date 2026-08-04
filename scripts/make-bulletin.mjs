@@ -88,6 +88,9 @@ const atom = (...blocks) => ({ type: 'atom', blocks });
 /** Hàng hai cột kiểu báo: ảnh một bên, chữ chạy bên cạnh. */
 const row = (left, right) => ({ type: 'row', cols: [left, right] });
 
+/** Nhiều mục dính liền: mở bài (tiêu đề + ảnh + sapo) không được tách trang. */
+const group = (...items) => ({ type: 'group', items });
+
 /* -------------------------------------------------------------- dữ liệu -- */
 
 /** Tiêu đề các tin chỉ đăng trên fanpage (lấy nguyên từ file Word). */
@@ -101,60 +104,72 @@ const articles = JSON.parse(await readFile(join(ROOT, "lib", "bulletin-articles.
 const ok = articles.filter((a) => a.ok);
 const blocked = articles.filter((a) => !a.ok);
 
-/** Bài báo → danh sách atom để xếp trang. */
+/** cụm ảnh + chú thích theo bề rộng cho trước */
+const anhCum = (img, h, w) => [
+  image(img.path, h, { w, border: 3, gap: 8 }),
+  text(img.caption || "Ảnh: Báo Hànộimới.", {
+    size: 17, font: SANS, color: MUTED, italic: true, lh: 1.4, w, gap: 14,
+  }),
+];
+
+/**
+ * Bài báo → danh sách mục để xếp trang.
+ * Ảnh xen kẽ nhiều kiểu cho đỡ đơn điệu: ảnh lớn ngang, ảnh nửa trái, nửa phải,
+ * và cặp hai ảnh cạnh nhau.
+ */
 function articleAtoms(a) {
   const out = [];
 
-  out.push(
-    atom(
-      text(a.muc.toUpperCase(), { size: 19, font: SANS, bold: true, color: GOLD, gap: 6 }),
-      text(a.title, { size: 33, bold: true, color: RED, lh: 1.24, gap: 8 }),
-      text(`${a.author || "Báo Hànộimới"} · ${a.date} · Nguồn: ${a.source}`, {
-        size: 18,
-        font: SANS,
-        color: MUTED,
-        italic: true,
-        lh: 1.4,
-        gap: 16,
-      }),
-    ),
+  const header = atom(
+    text(a.muc.toUpperCase(), { size: 19, font: SANS, bold: true, color: GOLD, gap: 6 }),
+    text(a.title, { size: 33, bold: true, color: RED, lh: 1.24, gap: 8 }),
+    text(`${a.author || "Báo Hànộimới"} · ${a.date} · Nguồn: ${a.source}`, {
+      size: 18, font: SANS, color: MUTED, italic: true, lh: 1.4, gap: 14,
+    }),
   );
 
-  /** cụm ảnh nửa trang + chú thích, dùng cho hàng hai cột */
-  const anhCot = (img, h = 250) => [
-    image(img.path, h, { w: HALF, border: 3, gap: 8 }),
-    text(img.caption || "Ảnh: Báo Hànộimới.", {
-      size: 17, font: SANS, color: MUTED, italic: true, lh: 1.4, w: HALF, gap: 14,
-    }),
-  ];
+  const paras = [...a.paragraphs];
+  const imgs = [...a.images];
 
-  const paras = a.paragraphs; // lấy hết, không cắt bớt
-  const sapo = a.sapo
-    ? [text(a.sapo, { size: 22, bold: true, color: NAVY, lh: 1.5, w: HALF, gap: 14 })]
-    : [];
+  // Mở bài: tiêu đề + ảnh lớn ngang + sapo đi liền nhau, không để trống trang
+  const mo = [header];
+  if (imgs.length) mo.push(atom(...anhCum(imgs.shift(), 320, CW)));
+  if (a.sapo) {
+    mo.push(atom(text(a.sapo, { size: 24, bold: true, color: NAVY, lh: 1.55, gap: 16 })));
+  } else if (paras.length) {
+    mo.push(atom(text(paras.shift(), { gap: 14 })));
+  }
+  out.push(group(...mo));
 
-  // Hàng 1: ảnh bên trái, sapo + đoạn đầu chạy bên phải (kiểu báo)
-  if (a.images[0]) {
-    out.push(
-      row(anhCot(a.images[0], 260), [
-        ...sapo,
-        ...(paras[0] ? [text(paras[0], { w: HALF, gap: 12 })] : []),
-      ]),
-    );
-  } else if (a.sapo) {
-    out.push(atom(text(a.sapo, { size: 24, bold: true, color: NAVY, lh: 1.55, gap: 16 })));
+  // Thân bài: cứ 2 đoạn lại chèn ảnh, luân phiên nửa trái → nửa phải → cặp đôi
+  let kieu = 0;
+  while (paras.length) {
+    const doan = paras.shift();
+
+    if (!imgs.length || out.length % 2 === 0) {
+      out.push(atom(text(doan, { gap: 14 })));
+      continue;
+    }
+
+    if (kieu % 3 === 0) {
+      out.push(row(anhCum(imgs.shift(), 250, HALF), [text(doan, { w: HALF, gap: 12 })]));
+    } else if (kieu % 3 === 1) {
+      out.push(row([text(doan, { w: HALF, gap: 12 })], anhCum(imgs.shift(), 250, HALF)));
+    } else if (imgs.length >= 2) {
+      out.push(atom(text(doan, { gap: 14 })));
+      out.push(row(anhCum(imgs.shift(), 210, HALF), anhCum(imgs.shift(), 210, HALF)));
+    } else {
+      out.push(atom(text(doan, { gap: 14 })));
+      out.push(atom(...anhCum(imgs.shift(), 300, CW)));
+    }
+    kieu++;
   }
 
-  const rest = a.images[0] ? paras.slice(1) : paras;
-
-  rest.forEach((p, i) => {
-    // Hàng 2: chữ bên trái, ảnh thứ hai bên phải
-    if (i === 1 && a.images[1]) {
-      out.push(row([text(p, { w: HALF, gap: 12 })], anhCot(a.images[1], 250)));
-      return;
-    }
-    out.push(atom(text(p, { gap: 14 })));
-  });
+  // Ảnh còn thừa: xếp thành cặp cuối bài
+  while (imgs.length >= 2) {
+    out.push(row(anhCum(imgs.shift(), 210, HALF), anhCum(imgs.shift(), 210, HALF)));
+  }
+  if (imgs.length) out.push(atom(...anhCum(imgs.shift(), 300, CW)));
 
   return out;
 }
@@ -206,6 +221,11 @@ async function paginate(items, { continuedLabel } = {}) {
 
   /** chiều cao của một mục: atom xếp dọc, row lấy cột cao nhất */
   async function heightOfItem(it) {
+    if (it.type === "group") {
+      let h = 0;
+      for (const sub of it.items) h += await heightOfItem(sub);
+      return h;
+    }
     if (it.type === "row") {
       let max = 0;
       for (const col of it.cols) {
@@ -222,6 +242,10 @@ async function paginate(items, { continuedLabel } = {}) {
 
   /** đặt mục vào trang hiện tại tại vị trí y */
   async function place(it) {
+    if (it.type === "group") {
+      for (const sub of it.items) await place(sub);
+      return;
+    }
     if (it.type === "row") {
       const xs = [COL_L, COL_R];
       let max = 0;
@@ -270,7 +294,7 @@ async function paginate(items, { continuedLabel } = {}) {
 const bodyPages = [];
 
 for (const a of ok) {
-  const laid = await paginate(articleAtoms(a), { continuedLabel: "(tiếp theo)" });
+  const laid = await paginate(articleAtoms(a));
   for (const els of laid) bodyPages.push({ article: a.key, els });
 }
 

@@ -88,9 +88,9 @@ for (const src of SOURCES) {
     }))
     .filter((f) => f.src && !/\/thumbs\//.test(f.src));
 
-  // tải tối đa 2 ảnh mỗi bài
+  // tải tối đa 6 ảnh mỗi bài để có đủ ảnh minh hoạ cho từng đoạn
   const images = [];
-  for (const [i, fig] of figures.slice(0, 2).entries()) {
+  for (const [i, fig] of figures.slice(0, 6).entries()) {
     try {
       const res = await fetch(fig.src, { headers: { "User-Agent": UA, Referer: src.url } });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);

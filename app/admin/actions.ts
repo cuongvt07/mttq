@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { isAdminEmail } from "@/lib/admin-auth";
 import { slugify } from "@/lib/slug";
 import { createClient } from "@/utils/supabase/server";
 
@@ -33,16 +35,57 @@ function refresh(path?: string) {
 
 export type SignInState = { error?: string } | undefined;
 
+const NOT_ADMIN = "Tài khoản này chưa được cấp quyền quản trị.";
+
+/** Đường dẫn gốc của site, dùng để dựng redirect URL cho Google. */
+async function siteOrigin() {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL;
+  if (configured) return configured.replace(/\/$/, "");
+
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  return `${proto}://${host}`;
+}
+
+/** next phải là đường dẫn nội bộ — chặn open redirect. */
+function safeNext(value: string) {
+  return value.startsWith("/") && !value.startsWith("//") ? value : "/admin";
+}
+
 export async function signIn(_prev: SignInState, form: FormData): Promise<SignInState> {
   const email = str(form, "email");
   const password = str(form, "password");
-  const next = str(form, "next") || "/admin";
+  const next = safeNext(str(form, "next") || "/admin");
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { error: error.message };
 
+  if (!(await isAdminEmail(supabase, data.user.email))) {
+    await supabase.auth.signOut();
+    return { error: NOT_ADMIN };
+  }
+
   redirect(next);
+}
+
+export async function signInWithGoogle(_prev: SignInState, form: FormData): Promise<SignInState> {
+  const next = safeNext(str(form, "next") || "/admin");
+  const origin = await siteOrigin();
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
+      queryParams: { access_type: "offline", prompt: "consent" },
+    },
+  });
+
+  if (error || !data.url) return { error: error?.message ?? "Không tạo được liên kết Google." };
+
+  redirect(data.url);
 }
 
 export async function signOut() {
