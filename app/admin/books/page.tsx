@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getBooks } from "@/lib/book-queries";
 import { PAGE_RATIOS } from "@/lib/book-types";
-import { createBook } from "./actions";
+import { createBook, duplicateBook } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +39,16 @@ export default async function BooksPage() {
               <Link href={`/sach/${b.slug}`} target="_blank" className="adm-btn adm-btn-sm adm-btn-ghost">
                 Xem ↗
               </Link>
+              <form action={duplicateBook}>
+                <input type="hidden" name="id" value={b.id} />
+                <button
+                  type="submit"
+                  title="Tạo bản sao giữ nguyên khung để làm số mới"
+                  className="adm-btn adm-btn-sm adm-btn-ghost"
+                >
+                  Nhân bản
+                </button>
+              </form>
               <Link href={`/admin/books/${b.id}`} className="adm-btn adm-btn-sm">
                 Thiết kế
               </Link>

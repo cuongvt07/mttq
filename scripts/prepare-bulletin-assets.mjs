@@ -87,8 +87,8 @@ await sharp(
   .webp({ quality: 88 })
   .toFile(join(OUT, "bg-bia.webp"));
 
-// --- trang ruột: nền ngà, băng đỏ đầu trang, khung vàng mảnh
-await sharp(
+// --- trang ruột: nền ngà, băng đỏ đầu trang, khung vàng mảnh, con dấu chìm
+const nenTrang = await sharp(
   svg(`
     <rect width="${W}" height="${H}" fill="#fffdf6"/>
     ${dots("#c1121f", 0.035)}
@@ -96,8 +96,27 @@ await sharp(
     <rect x="0" y="14" width="${W}" height="4" fill="#f0c14b"/>
     <rect x="0" y="${H - 12}" width="${W}" height="12" fill="#0b3f8f"/>
     <rect x="30" y="34" width="${W - 60}" height="${H - 62}" fill="none" stroke="#e6d9a8" stroke-width="1.5"/>
+    <rect x="30" y="34" width="6" height="${H - 62}" fill="#f0c14b" opacity="0.35"/>
   `),
-)
+).toBuffer();
+
+/** con dấu Mặt trận khử màu, mờ 3% làm hoạ tiết chìm giữa trang */
+const dauChim = await sharp(join(ROOT, "public", "brand", "emblem.webp"))
+  .resize(430)
+  .grayscale()
+  .ensureAlpha()
+  .composite([
+    {
+      input: Buffer.from([255, 255, 255, Math.round(255 * 0.03)]),
+      raw: { width: 1, height: 1, channels: 4 },
+      tile: true,
+      blend: "dest-in",
+    },
+  ])
+  .toBuffer();
+
+await sharp(nenTrang)
+  .composite([{ input: dauChim, top: Math.round((H - 430) / 2), left: Math.round((W - 430) / 2) }])
   .webp({ quality: 88 })
   .toFile(join(OUT, "bg-trang.webp"));
 

@@ -50,6 +50,59 @@ export async function updateBookMeta(form: FormData) {
   revalidatePath("/", "layout");
 }
 
+/**
+ * Nhân bản cả cuốn sách: giữ nguyên khung (tỉ lệ trang, đầu/chân trang, bố cục,
+ * ảnh) để số sau chỉ việc thay chữ và ảnh.
+ */
+export async function duplicateBook(form: FormData) {
+  const supabase = await createClient();
+  const id = str(form, "id");
+
+  const { data: goc, error: e1 } = await supabase
+    .from("books")
+    .select("*, book_pages(*)")
+    .eq("id", id)
+    .maybeSingle();
+  if (e1 || !goc) throw new Error(e1?.message ?? "Không thấy sách gốc");
+
+  const { book_pages, id: _cu, created_at: _ca, updated_at: _ua, ...meta } = goc as never as {
+    book_pages: { sort_order: number; background: string; background_image: string | null; elements: unknown }[];
+    id: string;
+    created_at: string;
+    updated_at: string;
+    title: string;
+    slug: string;
+  };
+
+  const title = `${meta.title} (bản sao)`;
+  const slug = `${meta.slug}-${Math.random().toString(36).slice(2, 6)}`;
+
+  const { data: moi, error: e2 } = await supabase
+    .from("books")
+    .insert({ ...meta, title, slug })
+    .select("id")
+    .maybeSingle();
+  if (e2 || !moi) throw new Error(e2?.message ?? "Không tạo được bản sao");
+
+  if (book_pages?.length) {
+    const { error: e3 } = await supabase.from("book_pages").insert(
+      [...book_pages]
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map((p, i) => ({
+          book_id: moi.id,
+          sort_order: i,
+          background: p.background,
+          background_image: p.background_image,
+          elements: p.elements,
+        })),
+    );
+    if (e3) throw new Error(e3.message);
+  }
+
+  revalidatePath("/admin/books");
+  redirect(`/admin/books/${moi.id}`);
+}
+
 export async function deleteBook(form: FormData) {
   const supabase = await createClient();
   await supabase.from("books").delete().eq("id", str(form, "id"));

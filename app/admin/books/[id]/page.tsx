@@ -4,7 +4,7 @@ import BookEditor from "@/components/book/BookEditor";
 import ConfirmSubmit from "@/components/admin/ConfirmSubmit";
 import { getBook } from "@/lib/book-queries";
 import { PAGE_RATIOS } from "@/lib/book-types";
-import { deleteBook, updateBookMeta } from "../actions";
+import { deleteBook, duplicateBook, updateBookMeta } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +71,9 @@ export default async function BookEditorPage({ params }: { params: Promise<{ id:
           <div className="flex flex-wrap gap-2.5">
             <button type="submit" className="adm-btn">
               Lưu thông tin
+            </button>
+            <button type="submit" formAction={duplicateBook} className="adm-btn adm-btn-ghost">
+              Nhân bản sách này
             </button>
             <ConfirmSubmit
               message={`Xoá sách "${book.title}" và toàn bộ trang?`}

@@ -141,7 +141,7 @@ async function articleAtoms(a) {
   }
   out.push(group(...mo));
 
-  // Thân bài: ảnh luân phiên nửa trái → nửa phải → cặp đôi; chữ chảy quanh ảnh
+  // Thân bài: ảnh nửa trang LUÔN có chữ chạy bên cạnh (trái → phải → ngang lớn)
   let kieu = 0;
   while (paras.length) {
     const doan = paras.shift();
@@ -151,9 +151,10 @@ async function articleAtoms(a) {
       continue;
     }
 
-    if (kieu % 3 === 2 && imgs.length >= 2) {
+    if (kieu % 3 === 2) {
+      // ảnh ngang lớn, chữ nằm trên nó — không đặt ảnh nào cạnh ảnh
       out.push(atom(text(doan, { gap: 14 })));
-      out.push(row(anhCum(imgs.shift(), 210, HALF, a.source), anhCum(imgs.shift(), 210, HALF, a.source)));
+      out.push(atom(...anhCum(imgs.shift(), 300, CW, a.source)));
     } else {
       // gộp thêm một đoạn nữa để chữ có phần chảy tiếp bên dưới ảnh
       const noiDung = [doan, ...(paras.length ? [paras.shift()] : [])].join("\n\n");
@@ -162,11 +163,8 @@ async function articleAtoms(a) {
     kieu++;
   }
 
-  // Ảnh còn thừa: xếp thành cặp cuối bài
-  while (imgs.length >= 2) {
-    out.push(row(anhCum(imgs.shift(), 210, HALF, a.source), anhCum(imgs.shift(), 210, HALF, a.source)));
-  }
-  if (imgs.length) out.push(atom(...anhCum(imgs.shift(), 300, CW, a.source)));
+  // Ảnh còn thừa khi đã hết chữ: để ngang cả trang, không ghép đôi
+  for (const img of imgs) out.push(atom(...anhCum(img, 300, CW, a.source)));
 
   return out;
 }
