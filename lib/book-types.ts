@@ -124,7 +124,7 @@ export type BookWithPages = Book & { pages: BookPage[] };
 
 export const FONT_FAMILIES = [
   { label: "Mặc định (Segoe UI)", value: '"Segoe UI", system-ui, sans-serif' },
-  { label: "Times / có chân", value: 'Georgia, "Times New Roman", serif' },
+  { label: "Có chân (Times New Roman)", value: '"Times New Roman", Times, serif' },
   { label: "Arial", value: "Arial, Helvetica, sans-serif" },
   { label: "Tahoma", value: "Tahoma, Verdana, sans-serif" },
   { label: "Máy chữ", value: '"Courier New", monospace' },

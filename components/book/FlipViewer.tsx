@@ -101,7 +101,13 @@ export default function FlipViewer({ book }: { book: BookWithPages }) {
         onFlip={(e: { data: number }) => setCurrent(e.data)}
       >
         {book.pages.map((p, i) => (
-          <div key={p.id} className="bg-white">
+          // bìa trước/sau là bìa cứng (lật nguyên tấm), trang ruột gập mềm
+          // như giấy khi kéo góc
+          <div
+            key={p.id}
+            className="bg-white"
+            data-density={i === 0 || i === book.pages.length - 1 ? "hard" : "soft"}
+          >
             <PageRenderer
               page={p}
               ratio={book.page_ratio}
