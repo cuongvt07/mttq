@@ -731,6 +731,17 @@ function TextProps({
       </label>
 
       <label className="adm-field">
+        <span>Link khi bấm vào (tuỳ chọn)</span>
+        <input
+          type="text"
+          value={el.href ?? ""}
+          onChange={(e) => onChange({ href: e.target.value || undefined })}
+          placeholder="https://hanoimoi.vn/…"
+          className="adm-input"
+        />
+      </label>
+
+      <label className="adm-field">
         <span>Phông chữ</span>
         <select
           value={el.fontFamily}

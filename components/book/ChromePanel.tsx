@@ -180,15 +180,26 @@ export default function ChromePanel({
           />
         </label>
         <label className="adm-field">
-          <span>Trang bìa</span>
-          <span className="flex items-center gap-2 text-sm text-slate-600">
-            <input
-              type="checkbox"
-              checked={chrome.skipFirstPage}
-              onChange={(e) => onChange({ skipFirstPage: e.target.checked })}
-              className="size-4"
-            />
-            Bỏ qua
+          <span>Bỏ qua</span>
+          <span className="flex flex-col gap-1 text-sm text-slate-600">
+            <span className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={chrome.skipFirstPage}
+                onChange={(e) => onChange({ skipFirstPage: e.target.checked })}
+                className="size-4"
+              />
+              Bìa trước
+            </span>
+            <span className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={chrome.skipLastPage ?? false}
+                onChange={(e) => onChange({ skipLastPage: e.target.checked })}
+                className="size-4"
+              />
+              Bìa sau
+            </span>
           </span>
         </label>
       </div>

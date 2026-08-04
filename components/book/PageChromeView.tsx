@@ -91,6 +91,7 @@ export default function PageChromeView({
   total: number;
 }) {
   if (chrome.skipFirstPage && pageNumber === 1) return null;
+  if (chrome.skipLastPage && pageNumber === total) return null;
 
   return (
     <>

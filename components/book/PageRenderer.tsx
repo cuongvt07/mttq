@@ -23,8 +23,13 @@ export function ElementView({ el }: { el: BookElement }) {
   };
 
   if (el.type === "text") {
+    const Tag = el.href ? "a" : "div";
+    const linkProps = el.href
+      ? { href: el.href, target: "_blank", rel: "noopener noreferrer" }
+      : {};
     return (
-      <div
+      <Tag
+        {...linkProps}
         data-el-id={el.id}
         style={{
           ...base,
@@ -40,7 +45,7 @@ export function ElementView({ el }: { el: BookElement }) {
         }}
       >
         {el.content}
-      </div>
+      </Tag>
     );
   }
 

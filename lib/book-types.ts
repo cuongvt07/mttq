@@ -31,6 +31,8 @@ export type TextElement = {
   italic: boolean;
   align: "left" | "center" | "right";
   lineHeight: number;
+  /** bấm vào chữ mở link (bài báo, tài liệu…) */
+  href?: string;
 };
 
 export type ImageElement = {
@@ -78,6 +80,8 @@ export type PageChrome = {
   margin: number;
   /** bỏ qua trang đầu (thường là bìa) */
   skipFirstPage: boolean;
+  /** bỏ qua trang cuối (bìa sau) */
+  skipLastPage?: boolean;
   header: ChromeBand;
   footer: ChromeBand;
 };
@@ -85,6 +89,7 @@ export type PageChrome = {
 export const DEFAULT_CHROME: PageChrome = {
   margin: 48,
   skipFirstPage: true,
+  skipLastPage: true,
   header: {
     enabled: false,
     text: "",

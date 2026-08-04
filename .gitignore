@@ -8,3 +8,10 @@ next-env.d.ts
 .DS_Store
 
 scripts/.canva-cache.html
+
+# tư liệu nguồn của bản tin (ảnh gốc, file Word) — ảnh đã nén vào public/tin
+*.docx
+/14.jpg
+/4.jpg
+/1WUpukh8*.jpg
+/2aOboQp6*.jpg
