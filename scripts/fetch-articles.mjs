@@ -9,6 +9,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import puppeteer from "puppeteer-core";
 import sharp from "sharp";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -43,10 +44,118 @@ const strip = (html = "") => decode(html.replace(/<[^>]+>/g, " ")).replace(/\s+/
 
 await mkdir(IMG_DIR, { recursive: true });
 
+/* --------------------------------------------------------------- Facebook -- */
+
+const CHROME = "C:/Program Files/Google/Chrome/Application/chrome.exe";
+let browser = null;
+
+/** Tải ảnh về, nén WebP. */
+async function taiAnh(url, file, referer) {
+  const res = await fetch(url, { headers: { "User-Agent": UA, Referer: referer } });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const meta = await sharp(Buffer.from(await res.arrayBuffer()))
+    .resize({ width: 1400, withoutEnlargement: true })
+    .webp({ quality: 82 })
+    .toFile(join(IMG_DIR, file));
+  return meta;
+}
+
+/**
+ * Bài trên fanpage: Facebook trả HTTP 400 cho fetch thường nhưng vẫn render
+ * bài công khai khi mở bằng trình duyệt, nên dùng Chrome headless để lấy
+ * nguyên văn nội dung và ảnh.
+ */
+async function layBaiFacebook(src) {
+  try {
+    browser ??= await puppeteer.launch({ executablePath: CHROME, headless: "new" });
+    const p = await browser.newPage();
+    await p.setUserAgent(UA);
+    await p.goto(src.url, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await new Promise((r) => setTimeout(r, 3500));
+
+    // bài dài bị thu gọn — bấm "Xem thêm" để lấy đủ nội dung
+    await p
+      .evaluate(() => {
+        const nut = [...document.querySelectorAll('div[role="button"], span')].find((n) =>
+          /^Xem thêm$/i.test(n.textContent?.trim() ?? ""),
+        );
+        nut?.click();
+      })
+      .catch(() => {});
+    await new Promise((r) => setTimeout(r, 1200));
+
+    const data = await p.evaluate(() => {
+      const meta = (prop) => document.querySelector(`meta[property="${prop}"]`)?.content ?? "";
+      const anh = [...document.querySelectorAll("img")]
+        .filter((i) => /scontent|fbcdn/.test(i.src) && !/emoji\.php|static\.xx/.test(i.src))
+        .filter((i) => i.naturalWidth >= 400)
+        .map((i) => i.src);
+
+      // nguyên văn bài viết nằm trong khối message của Facebook
+      const khoi =
+        document.querySelector('div[data-ad-comet-preview="message"]') ??
+        document.querySelector('div[data-ad-preview="message"]') ??
+        document.querySelector('div[data-testid="post_message"]');
+
+      return {
+        full: khoi?.innerText ?? "",
+        text: meta("og:description"),
+        title: document.title,
+        images: [...new Set([meta("og:image"), ...anh])].filter(Boolean),
+      };
+    });
+    await p.close();
+
+    const nguyenVan = (data.full || data.text || "").trim();
+    if (!nguyenVan) throw new Error("không đọc được nội dung bài");
+
+    // dòng đầu in hoa thường là tiêu đề, phần sau là thân bài
+    const dong = decode(nguyenVan)
+      .split("\n")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    const title = dong[0].replace(/^[^\p{L}\d]+/u, "").trim();
+    const paragraphs = dong.slice(1).filter((t) => t.length > 40 && !/^Xem thêm$/i.test(t));
+
+    const images = [];
+    for (const [i, url] of data.images.slice(0, 4).entries()) {
+      try {
+        const file = `${src.key}-${i + 1}.webp`;
+        const meta = await taiAnh(url, file, src.url);
+        images.push({ path: `/tin/bao/${file}`, caption: "", w: meta.width, h: meta.height });
+      } catch {
+        /* ảnh lỗi thì bỏ qua */
+      }
+    }
+
+    return {
+      ...src,
+      ok: true,
+      title,
+      sapo: paragraphs[0] ?? "",
+      author: "Yên Nghĩa News",
+      date: (data.title.match(/(\d{1,2}\s+Tháng\s+\d{1,2})/) ?? [])[1] ?? "",
+      paragraphs: paragraphs.slice(1),
+      images,
+      source: "Fanpage phường Yên Nghĩa",
+    };
+  } catch (e) {
+    return { ...src, ok: false, reason: e.message };
+  }
+}
+
 const articles = [];
 
 for (const src of SOURCES) {
   process.stdout.write(`· ${src.key} … `);
+
+  // Facebook chặn fetch thường (HTTP 400) → mở bằng trình duyệt thật
+  if (/facebook\.com/.test(src.url)) {
+    const fb = await layBaiFacebook(src);
+    articles.push(fb);
+    console.log(fb.ok ? `${fb.paragraphs.length} đoạn, ${fb.images.length} ảnh` : `thất bại (${fb.reason})`);
+    continue;
+  }
 
   let html = "";
   try {
@@ -56,14 +165,6 @@ for (const src of SOURCES) {
   } catch (e) {
     console.log(`không tải được (${e.message})`);
     articles.push({ ...src, ok: false, reason: e.message });
-    continue;
-  }
-
-  // Facebook chặn máy khách không đăng nhập → không có nội dung để lấy
-  if (/facebook\.com/.test(src.url)) {
-    const og = html.match(/property="og:description"\s+content="([^"]*)"/)?.[1];
-    console.log(og ? "chỉ lấy được mô tả ngắn" : "bị chặn (cần đăng nhập)");
-    articles.push({ ...src, ok: false, reason: "Facebook chặn tải nội dung", sapo: og ? decode(og) : null });
     continue;
   }
 
@@ -125,3 +226,5 @@ console.log("\n→ lib/bulletin-articles.json");
 for (const a of articles) {
   console.log(`  ${a.ok ? "✓" : "✗"} ${a.key.padEnd(18)} ${a.ok ? a.title.slice(0, 60) : a.reason}`);
 }
+
+await browser?.close();

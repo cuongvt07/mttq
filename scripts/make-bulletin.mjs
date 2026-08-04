@@ -105,9 +105,9 @@ const ok = articles.filter((a) => a.ok);
 const blocked = articles.filter((a) => !a.ok);
 
 /** cụm ảnh + chú thích theo bề rộng cho trước */
-const anhCum = (img, h, w) => [
+const anhCum = (img, h, w, nguon = "Báo Hànộimới") => [
   image(img.path, h, { w, border: 3, gap: 8 }),
-  text(img.caption || "Ảnh: Báo Hànộimới.", {
+  text(img.caption || `Ảnh: ${nguon}.`, {
     size: 17, font: SANS, color: MUTED, italic: true, lh: 1.4, w, gap: 14,
   }),
 ];
@@ -123,7 +123,7 @@ async function articleAtoms(a) {
   const header = atom(
     text(a.muc.toUpperCase(), { size: 19, font: SANS, bold: true, color: GOLD, gap: 6 }),
     text(a.title, { size: 33, bold: true, color: RED, lh: 1.24, gap: 8 }),
-    text(`${a.author || "Báo Hànộimới"} · ${a.date} · Nguồn: ${a.source}`, {
+    text([a.author, a.date, `Nguồn: ${a.source}`].filter(Boolean).join(" · "), {
       size: 18, font: SANS, color: MUTED, italic: true, lh: 1.4, gap: 14,
     }),
   );
@@ -133,7 +133,7 @@ async function articleAtoms(a) {
 
   // Mở bài: tiêu đề + ảnh lớn ngang + sapo đi liền nhau, không để trống trang
   const mo = [header];
-  if (imgs.length) mo.push(atom(...anhCum(imgs.shift(), 320, CW)));
+  if (imgs.length) mo.push(atom(...anhCum(imgs.shift(), 320, CW, a.source)));
   if (a.sapo) {
     mo.push(atom(text(a.sapo, { size: 24, bold: true, color: NAVY, lh: 1.55, gap: 16 })));
   } else if (paras.length) {
@@ -153,20 +153,20 @@ async function articleAtoms(a) {
 
     if (kieu % 3 === 2 && imgs.length >= 2) {
       out.push(atom(text(doan, { gap: 14 })));
-      out.push(row(anhCum(imgs.shift(), 210, HALF), anhCum(imgs.shift(), 210, HALF)));
+      out.push(row(anhCum(imgs.shift(), 210, HALF, a.source), anhCum(imgs.shift(), 210, HALF, a.source)));
     } else {
       // gộp thêm một đoạn nữa để chữ có phần chảy tiếp bên dưới ảnh
       const noiDung = [doan, ...(paras.length ? [paras.shift()] : [])].join("\n\n");
-      out.push(await wrapItem(imgs.shift(), kieu % 3 === 0 ? "left" : "right", noiDung, 250));
+      out.push(await wrapItem(imgs.shift(), kieu % 3 === 0 ? "left" : "right", noiDung, 250, a.source));
     }
     kieu++;
   }
 
   // Ảnh còn thừa: xếp thành cặp cuối bài
   while (imgs.length >= 2) {
-    out.push(row(anhCum(imgs.shift(), 210, HALF), anhCum(imgs.shift(), 210, HALF)));
+    out.push(row(anhCum(imgs.shift(), 210, HALF, a.source), anhCum(imgs.shift(), 210, HALF, a.source)));
   }
-  if (imgs.length) out.push(atom(...anhCum(imgs.shift(), 300, CW)));
+  if (imgs.length) out.push(atom(...anhCum(imgs.shift(), 300, CW, a.source)));
 
   return out;
 }
@@ -233,11 +233,28 @@ async function splitToFit(content, w, maxH) {
     }
   }
 
-  // lùi về khoảng trắng gần nhất để không cắt giữa từ
-  const sp = content.lastIndexOf(" ", best);
-  if (sp > 40) best = sp;
+  /** điểm kết thúc câu gần nhất trước vị trí `i` (tính cả dấu chấm) */
+  const cuoiCau = (i) => {
+    let cat = -1;
+    for (const dau of [". ", "; ", ".\n", "\n"]) {
+      const k = content.lastIndexOf(dau, i);
+      if (k > cat) cat = k + (dau === "\n" ? 0 : 1);
+    }
+    return cat;
+  };
 
-  return [content.slice(0, best).trim(), content.slice(best).trim()];
+  // Chỉ cắt ở hết câu — tránh phần dưới chỉ còn lơ lửng vài chữ.
+  let cat = cuoiCau(best);
+
+  // Phần chảy xuống dưới quá ngắn thì lùi thêm một câu nữa cho cân.
+  const DU_DAI = 90;
+  if (cat > 0 && content.length - cat < DU_DAI) cat = cuoiCau(cat - 2);
+
+  // Không tìm được ranh giới câu hợp lý → đẩy cả đoạn xuống dưới, để trống
+  // bên cạnh ảnh còn hơn cắt giữa câu.
+  if (cat < 60) return ["", content];
+
+  return [content.slice(0, cat).trim(), content.slice(cat).trim()];
 }
 
 /** Khoảng hở giữa đáy ảnh và phần chữ chạy full ngang bên dưới. */
@@ -247,8 +264,8 @@ const WRAP_GAP = 20;
  * Mục "chữ chảy quanh ảnh": ảnh nửa trang một bên, chữ chạy bên cạnh,
  * hết ảnh thì chữ tràn ra full chiều ngang.
  */
-async function wrapItem(img, side, content, imgH = 250) {
-  const cot = anhCum(img, imgH, HALF);
+async function wrapItem(img, side, content, imgH = 250, nguon) {
+  const cot = anhCum(img, imgH, HALF, nguon);
   let colH = 0;
   for (const b of cot) colH += (await heightOf(b)) + b.gap;
   colH -= cot.at(-1).gap; // không tính gap cuối
