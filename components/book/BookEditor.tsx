@@ -18,6 +18,7 @@ import {
 import { createClient } from "@/utils/supabase/client";
 import { saveBookChrome, saveBookPages } from "@/app/admin/books/actions";
 import { toast } from "@/components/admin/Toast";
+import BackgroundPicker from "./BackgroundPicker";
 import ChromePanel from "./ChromePanel";
 import ElementToolbar from "./ElementToolbar";
 import PageRenderer from "./PageRenderer";
@@ -605,49 +606,46 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
           <div className="mb-2 h-[60px]" aria-hidden />
         )}
 
+        {/* ------------------------------------------------ chọn nền trang bằng mẫu */}
+        <details className="group mb-2 rounded-xl border border-slate-200 bg-white" open>
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-sm font-bold text-slate-700">
+            <span className="transition group-open:rotate-90">▸</span>
+            Nền trang {pageIndex + 1}
+            <span className="font-normal text-slate-400">— bấm chọn mẫu</span>
+          </summary>
+          <div className="border-t border-slate-200 px-3 py-2.5">
+            <BackgroundPicker
+              current={page.background_image}
+              onPick={(t) => {
+                commit((prev) =>
+                  prev.map((p, i) =>
+                    i === pageIndex ? { ...p, background: t.background, background_image: t.image } : p,
+                  ),
+                );
+                toast(`Nền trang: ${t.ten}`);
+              }}
+              onPickAll={(t) => {
+                commit((prev) =>
+                  prev.map((p) => ({ ...p, background: t.background, background_image: t.image })),
+                );
+                toast(`Đã dùng nền "${t.ten}" cho ${pages.length} trang`);
+              }}
+            />
+          </div>
+        </details>
+
         {/* ---------------------------------------- tuỳ chọn chi tiết, thu gọn ở trên */}
         <details className="group mb-2 rounded-xl border border-slate-200 bg-white">
           <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-sm font-bold text-slate-700">
             <span className="transition group-open:rotate-90">▸</span>
             Tuỳ chọn chi tiết
             <span className="font-normal text-slate-400">
-              (nền trang, phông chữ, kích thước, đầu/chân trang)
+              (phông chữ, kích thước, vị trí, đầu/chân trang)
             </span>
           </summary>
 
           {/* một hàng ngang, cuộn khi hẹp — không chiếm nhiều chiều cao */}
           <div className="flex max-h-44 flex-wrap items-end gap-x-4 gap-y-2 overflow-y-auto border-t border-slate-200 px-3 py-2.5">
-            <label className={O_NHO}>
-              <span>Màu nền trang</span>
-              <input
-                type="color"
-                value={page.background}
-                onChange={(e) =>
-                  commit((prev) =>
-                    prev.map((p, i) => (i === pageIndex ? { ...p, background: e.target.value } : p)),
-                  )
-                }
-                className="h-9 w-14 rounded border border-slate-200 bg-white p-0.5"
-              />
-            </label>
-
-            <label className={`${O_NHO} min-w-52`}>
-              <span>Ảnh nền trang</span>
-              <input
-                type="text"
-                value={page.background_image ?? ""}
-                placeholder="/tin/bg-trang.webp"
-                onChange={(e) =>
-                  commit((prev) =>
-                    prev.map((p, i) =>
-                      i === pageIndex ? { ...p, background_image: e.target.value || null } : p,
-                    ),
-                  )
-                }
-                className={O_INPUT}
-              />
-            </label>
-
             {selected?.type === "text" ? (
               <>
                 <label className={`${O_NHO} min-w-44`}>
