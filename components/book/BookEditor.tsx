@@ -29,6 +29,11 @@ type Drag =
   | { mode: "resize"; id: string; startX: number; startY: number; w: number; h: number }
   | { mode: "rotate"; id: string; cx: number; cy: number; start: number; rotation: number };
 
+const O_NHO = "flex flex-col gap-1 text-[0.72rem] font-bold tracking-wide text-slate-500 uppercase";
+const O_INPUT =
+  "rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-900 outline-none " +
+  "focus:border-sky-400 focus:ring-2 focus:ring-sky-200";
+
 const NUT =
   "flex h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 " +
   "text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-100 active:bg-slate-200";
@@ -45,6 +50,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
   const [snapOn, setSnapOn] = useState(true);
   const [textHeights, setTextHeights] = useState<Record<string, number>>({});
   const [chrome, setChrome] = useState<PageChrome>(book.chrome);
+  const [showChrome, setShowChrome] = useState(false);
 
   const chromeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const past = useRef<BookPage[][]>([]);
@@ -564,6 +570,9 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
           >
             {statusText}
           </span>
+          <button type="button" onClick={() => void persist(pages)} className={NUT}>
+            💾 Lưu ngay
+          </button>
         </div>
 
         {/* thanh công cụ của khối đang chọn */}
@@ -584,6 +593,182 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
             Bấm vào một khối trên trang để sửa. Bấm hai lần vào khối chữ để gõ trực tiếp.
           </p>
         )}
+
+        {/* ---------------------------------------- tuỳ chọn chi tiết, thu gọn ở trên */}
+        <details className="group mb-2 rounded-xl border border-slate-200 bg-white">
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-sm font-bold text-slate-700">
+            <span className="transition group-open:rotate-90">▸</span>
+            Tuỳ chọn chi tiết
+            <span className="font-normal text-slate-400">
+              (nền trang, phông chữ, kích thước, đầu/chân trang)
+            </span>
+          </summary>
+
+          {/* một hàng ngang, cuộn khi hẹp — không chiếm nhiều chiều cao */}
+          <div className="flex max-h-44 flex-wrap items-end gap-x-4 gap-y-2 overflow-y-auto border-t border-slate-200 px-3 py-2.5">
+            <label className={O_NHO}>
+              <span>Màu nền trang</span>
+              <input
+                type="color"
+                value={page.background}
+                onChange={(e) =>
+                  commit((prev) =>
+                    prev.map((p, i) => (i === pageIndex ? { ...p, background: e.target.value } : p)),
+                  )
+                }
+                className="h-9 w-14 rounded border border-slate-200 bg-white p-0.5"
+              />
+            </label>
+
+            <label className={`${O_NHO} min-w-52`}>
+              <span>Ảnh nền trang</span>
+              <input
+                type="text"
+                value={page.background_image ?? ""}
+                placeholder="/tin/bg-trang.webp"
+                onChange={(e) =>
+                  commit((prev) =>
+                    prev.map((p, i) =>
+                      i === pageIndex ? { ...p, background_image: e.target.value || null } : p,
+                    ),
+                  )
+                }
+                className={O_INPUT}
+              />
+            </label>
+
+            {selected?.type === "text" ? (
+              <>
+                <label className={`${O_NHO} min-w-44`}>
+                  <span>Phông chữ</span>
+                  <select
+                    value={(selected as TextElement).fontFamily}
+                    onChange={(e) => patchElement(selected.id, { fontFamily: e.target.value })}
+                    className={O_INPUT}
+                  >
+                    {FONT_FAMILIES.map((f) => (
+                      <option key={f.value} value={f.value}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={O_NHO}>
+                  <span>Giãn dòng</span>
+                  <input
+                    type="number"
+                    step={0.05}
+                    value={(selected as TextElement).lineHeight}
+                    onChange={(e) => patchElement(selected.id, { lineHeight: Number(e.target.value) })}
+                    className={`${O_INPUT} w-20`}
+                  />
+                </label>
+                <label className={`${O_NHO} min-w-48`}>
+                  <span>Link khi bấm vào</span>
+                  <input
+                    type="text"
+                    value={(selected as TextElement).href ?? ""}
+                    placeholder="https://…"
+                    onChange={(e) => patchElement(selected.id, { href: e.target.value || undefined })}
+                    className={O_INPUT}
+                  />
+                </label>
+              </>
+            ) : null}
+
+            {selected?.type === "image" ? (
+              <>
+                <label className={O_NHO}>
+                  <span>Rộng</span>
+                  <input
+                    type="number"
+                    value={(selected as ImageElement).w}
+                    onChange={(e) => patchElement(selected.id, { w: Number(e.target.value) })}
+                    className={`${O_INPUT} w-20`}
+                  />
+                </label>
+                <label className={O_NHO}>
+                  <span>Cao</span>
+                  <input
+                    type="number"
+                    value={(selected as ImageElement).h}
+                    onChange={(e) => patchElement(selected.id, { h: Number(e.target.value) })}
+                    className={`${O_INPUT} w-20`}
+                  />
+                </label>
+                <label className={O_NHO}>
+                  <span>Viền</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={(selected as ImageElement).borderWidth}
+                    onChange={(e) => patchElement(selected.id, { borderWidth: Number(e.target.value) })}
+                    className={`${O_INPUT} w-16`}
+                  />
+                </label>
+                <label className={O_NHO}>
+                  <span>Màu viền</span>
+                  <input
+                    type="color"
+                    value={(selected as ImageElement).borderColor}
+                    onChange={(e) => patchElement(selected.id, { borderColor: e.target.value })}
+                    className="h-9 w-14 rounded border border-slate-200 bg-white p-0.5"
+                  />
+                </label>
+              </>
+            ) : null}
+
+            {selected ? (
+              <>
+                <label className={O_NHO}>
+                  <span>Ngang (X)</span>
+                  <input
+                    type="number"
+                    value={selected.x}
+                    onChange={(e) => patchElement(selected.id, { x: Number(e.target.value) })}
+                    className={`${O_INPUT} w-20`}
+                  />
+                </label>
+                <label className={O_NHO}>
+                  <span>Dọc (Y)</span>
+                  <input
+                    type="number"
+                    value={selected.y}
+                    onChange={(e) => patchElement(selected.id, { y: Number(e.target.value) })}
+                    className={`${O_INPUT} w-20`}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() =>
+                    patchElement(selected.id, { x: Math.round((PAGE_WIDTH - selected.w) / 2) })
+                  }
+                  className="h-9 cursor-pointer rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold hover:bg-slate-100"
+                >
+                  Căn giữa khối
+                </button>
+              </>
+            ) : (
+              <span className="self-center text-sm text-slate-400">
+                Chọn một khối để chỉnh phông chữ, kích thước, vị trí…
+              </span>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowChrome((v) => !v)}
+              className="h-9 cursor-pointer rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold hover:bg-slate-100"
+            >
+              {showChrome ? "Ẩn đầu/chân trang" : "Đầu / chân trang…"}
+            </button>
+          </div>
+
+          {showChrome ? (
+            <div className="border-t border-slate-200 p-3">
+              <ChromePanel chrome={chrome} onChange={patchChrome} />
+            </div>
+          ) : null}
+        </details>
 
         <div className="flex justify-center rounded-xl bg-slate-200 p-3">
           <div
@@ -740,181 +925,6 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
           vuông xanh để đổi cỡ, kéo chấm tròn để xoay · phím mũi tên dịch từng chút · Delete để xoá
         </p>
 
-        {/* ---------------------------------------------------- cài đặt ít dùng hơn */}
-        <details className="mt-4 rounded-xl border border-slate-200 bg-white p-3">
-          <summary className="cursor-pointer text-sm font-bold">Nền trang &amp; cài đặt chi tiết</summary>
-
-          <div className="mt-3 grid gap-4 md:grid-cols-2">
-            <div>
-              <b className="mb-2 block text-sm">Nền trang {pageIndex + 1}</b>
-              <label className="adm-field">
-                <span>Màu nền</span>
-                <input
-                  type="color"
-                  value={page.background}
-                  onChange={(e) =>
-                    commit((prev) =>
-                      prev.map((p, i) => (i === pageIndex ? { ...p, background: e.target.value } : p)),
-                    )
-                  }
-                  className="h-11 w-20 rounded-lg border border-slate-200 bg-white p-1"
-                />
-              </label>
-              <label className="adm-field">
-                <span>Ảnh nền (đường dẫn)</span>
-                <input
-                  type="text"
-                  value={page.background_image ?? ""}
-                  placeholder="/tin/bg-trang.webp"
-                  onChange={(e) =>
-                    commit((prev) =>
-                      prev.map((p, i) =>
-                        i === pageIndex ? { ...p, background_image: e.target.value || null } : p,
-                      ),
-                    )
-                  }
-                  className="adm-input"
-                />
-              </label>
-
-              {selected?.type === "text" ? (
-                <>
-                  <label className="adm-field">
-                    <span>Phông chữ</span>
-                    <select
-                      value={(selected as TextElement).fontFamily}
-                      onChange={(e) => patchElement(selected.id, { fontFamily: e.target.value })}
-                      className="adm-input"
-                    >
-                      {FONT_FAMILIES.map((f) => (
-                        <option key={f.value} value={f.value}>
-                          {f.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="adm-field">
-                    <span>Giãn dòng</span>
-                    <input
-                      type="number"
-                      step={0.05}
-                      value={(selected as TextElement).lineHeight}
-                      onChange={(e) =>
-                        patchElement(selected.id, { lineHeight: Number(e.target.value) })
-                      }
-                      className="adm-input"
-                    />
-                  </label>
-                  <label className="adm-field">
-                    <span>Link khi bấm vào (tuỳ chọn)</span>
-                    <input
-                      type="text"
-                      value={(selected as TextElement).href ?? ""}
-                      placeholder="https://…"
-                      onChange={(e) =>
-                        patchElement(selected.id, { href: e.target.value || undefined })
-                      }
-                      className="adm-input"
-                    />
-                  </label>
-                </>
-              ) : null}
-
-              {selected?.type === "image" ? (
-                <>
-                  <div className="grid grid-cols-2 gap-x-3">
-                    <label className="adm-field">
-                      <span>Rộng</span>
-                      <input
-                        type="number"
-                        value={(selected as ImageElement).w}
-                        onChange={(e) => patchElement(selected.id, { w: Number(e.target.value) })}
-                        className="adm-input"
-                      />
-                    </label>
-                    <label className="adm-field">
-                      <span>Cao</span>
-                      <input
-                        type="number"
-                        value={(selected as ImageElement).h}
-                        onChange={(e) => patchElement(selected.id, { h: Number(e.target.value) })}
-                        className="adm-input"
-                      />
-                    </label>
-                  </div>
-                  <div className="grid grid-cols-2 gap-x-3">
-                    <label className="adm-field">
-                      <span>Viền (px)</span>
-                      <input
-                        type="number"
-                        min={0}
-                        value={(selected as ImageElement).borderWidth}
-                        onChange={(e) =>
-                          patchElement(selected.id, { borderWidth: Number(e.target.value) })
-                        }
-                        className="adm-input"
-                      />
-                    </label>
-                    <label className="adm-field">
-                      <span>Màu viền</span>
-                      <input
-                        type="color"
-                        value={(selected as ImageElement).borderColor}
-                        onChange={(e) => patchElement(selected.id, { borderColor: e.target.value })}
-                        className="h-11 w-20 rounded-lg border border-slate-200 bg-white p-1"
-                      />
-                    </label>
-                  </div>
-                </>
-              ) : null}
-
-              {selected ? (
-                <div className="grid grid-cols-2 gap-x-3">
-                  <label className="adm-field">
-                    <span>Vị trí ngang (X)</span>
-                    <input
-                      type="number"
-                      value={selected.x}
-                      onChange={(e) => patchElement(selected.id, { x: Number(e.target.value) })}
-                      className="adm-input"
-                    />
-                  </label>
-                  <label className="adm-field">
-                    <span>Vị trí dọc (Y)</span>
-                    <input
-                      type="number"
-                      value={selected.y}
-                      onChange={(e) => patchElement(selected.id, { y: Number(e.target.value) })}
-                      className="adm-input"
-                    />
-                  </label>
-                </div>
-              ) : null}
-
-              {selected ? (
-                <button
-                  type="button"
-                  onClick={() =>
-                    patchElement(selected.id, { x: Math.round((PAGE_WIDTH - selected.w) / 2) })
-                  }
-                  className="adm-btn adm-btn-sm adm-btn-ghost"
-                >
-                  Căn giữa khối theo chiều ngang
-                </button>
-              ) : null}
-            </div>
-
-            <ChromePanel chrome={chrome} onChange={patchChrome} />
-          </div>
-        </details>
-
-        <button
-          type="button"
-          onClick={() => void persist(pages)}
-          className="adm-btn mt-3 h-11 w-full justify-center text-base"
-        >
-          Lưu ngay
-        </button>
       </div>
     </div>
   );
