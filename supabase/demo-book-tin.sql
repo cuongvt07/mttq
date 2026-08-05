@@ -8,8 +8,9 @@
 delete from public.books where slug = 'ban-tin-mat-tran-so-01';
 
 with b as (
-  insert into public.books (title, slug, page_ratio, cover_url, chrome)
+  insert into public.books (id, title, slug, page_ratio, cover_url, chrome)
   values (
+    '69045c01-c567-4097-b580-af7392760aff',
     'Bản tin Mặt trận phường Yên Nghĩa — số 01',
     'ban-tin-mat-tran-so-01',
     '3:4',
