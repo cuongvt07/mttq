@@ -18,6 +18,7 @@ import {
 import { createClient } from "@/utils/supabase/client";
 import { saveBookChrome, saveBookPages } from "@/app/admin/books/actions";
 import ChromePanel from "./ChromePanel";
+import ElementToolbar from "./ElementToolbar";
 import PageRenderer from "./PageRenderer";
 
 const GRID = 10;
@@ -28,28 +29,35 @@ type Drag =
   | { mode: "resize"; id: string; startX: number; startY: number; w: number; h: number }
   | { mode: "rotate"; id: string; cx: number; cy: number; start: number; rotation: number };
 
+const NUT =
+  "flex h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 " +
+  "text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-100 active:bg-slate-200";
+
 export default function BookEditor({ book }: { book: BookWithPages }) {
-  const [pages, setPages] = useState<BookPage[]>(
-    book.pages.length ? book.pages : [emptyPage()],
-  );
+  const [pages, setPages] = useState<BookPage[]>(book.pages.length ? book.pages : [emptyPage()]);
   const [pageIndex, setPageIndex] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  /** khối chữ đang được gõ trực tiếp trên trang */
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [message, setMessage] = useState("");
   const [canvasWidth, setCanvasWidth] = useState(560);
   const [snapOn, setSnapOn] = useState(true);
-  /** chiều cao thật (đơn vị trang) của từng khối chữ, đo từ phần tử đã render */
   const [textHeights, setTextHeights] = useState<Record<string, number>>({});
   const [chrome, setChrome] = useState<PageChrome>(book.chrome);
-  const chromeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const chromeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const past = useRef<BookPage[][]>([]);
   const future = useRef<BookPage[][]>([]);
   const dragRef = useRef<Drag | null>(null);
-  /** ảnh chụp trạng thái ngay trước khi kéo, để hoàn tác quay về đúng vị trí cũ */
   const dragSnapshot = useRef<BookPage[] | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const replaceIdRef = useRef<string | null>(null);
+  /** bắt hai lần bấm liên tiếp lên cùng một khối (dblclick không đáng tin khi React dựng lại node) */
+  const lastClick = useRef<{ id: string; t: number }>({ id: "", t: 0 });
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirty = useRef(false);
 
@@ -64,55 +72,13 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
     if (!el) return;
     const ro = new ResizeObserver(() => {
       const avail = el.clientWidth - 24;
-      setCanvasWidth(Math.max(260, Math.min(avail, 620)));
+      setCanvasWidth(Math.max(280, Math.min(avail, 660)));
     });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
-  const patchChrome = useCallback(
-    (patch: Partial<PageChrome>) => {
-      setChrome((prev) => {
-        const next = { ...prev, ...patch };
-        if (chromeTimer.current) clearTimeout(chromeTimer.current);
-        chromeTimer.current = setTimeout(async () => {
-          setStatus("saving");
-          const res = await saveBookChrome(book.id, next);
-          setStatus(res.ok ? "saved" : "error");
-          if (!res.ok) setMessage(res.error);
-        }, 900);
-        return next;
-      });
-    },
-    [book.id],
-  );
-
-  /* ------------------------------------------------------- đo chiều cao khối chữ -- */
-  useEffect(() => {
-    const root = canvasRef.current;
-    if (!root) return;
-
-    const measure = () => {
-      const next: Record<string, number> = {};
-      root.querySelectorAll<HTMLElement>("[data-el-id]").forEach((n) => {
-        // offsetHeight ở đây là đơn vị trang vì khung cha mới là thứ bị scale
-        next[n.dataset.elId!] = n.offsetHeight;
-      });
-      setTextHeights((prev) => {
-        const keys = Object.keys(next);
-        const same =
-          keys.length === Object.keys(prev).length && keys.every((k) => prev[k] === next[k]);
-        return same ? prev : next;
-      });
-    };
-
-    measure();
-    const ro = new ResizeObserver(measure);
-    root.querySelectorAll<HTMLElement>("[data-el-id]").forEach((n) => ro.observe(n));
-    return () => ro.disconnect();
-  }, [pages, pageIndex, canvasWidth]);
-
-  /* ---------------------------------------------------------------- lưu / autosave -- */
+  /* --------------------------------------------------------------- lưu / autosave -- */
   const persist = useCallback(
     async (next: BookPage[]) => {
       setStatus("saving");
@@ -138,7 +104,6 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
     [persist],
   );
 
-  /** Mọi thay đổi đi qua đây: ghi history + hẹn autosave. */
   const commit = useCallback(
     (updater: (prev: BookPage[]) => BookPage[], { history = true } = {}) => {
       setPages((prev) => {
@@ -152,6 +117,23 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
       });
     },
     [scheduleSave],
+  );
+
+  const patchChrome = useCallback(
+    (patch: Partial<PageChrome>) => {
+      setChrome((prev) => {
+        const next = { ...prev, ...patch };
+        if (chromeTimer.current) clearTimeout(chromeTimer.current);
+        chromeTimer.current = setTimeout(async () => {
+          setStatus("saving");
+          const res = await saveBookChrome(book.id, next);
+          setStatus(res.ok ? "saved" : "error");
+          if (!res.ok) setMessage(res.error);
+        }, 900);
+        return next;
+      });
+    },
+    [book.id],
   );
 
   const undo = useCallback(() => {
@@ -173,6 +155,30 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
       return next;
     });
   }, [scheduleSave]);
+
+  /* ------------------------------------------------------- đo chiều cao khối chữ -- */
+  useEffect(() => {
+    const root = canvasRef.current;
+    if (!root) return;
+
+    const measure = () => {
+      const next: Record<string, number> = {};
+      root.querySelectorAll<HTMLElement>("[data-el-id]").forEach((n) => {
+        next[n.dataset.elId!] = n.offsetHeight;
+      });
+      setTextHeights((prev) => {
+        const keys = Object.keys(next);
+        const same =
+          keys.length === Object.keys(prev).length && keys.every((k) => prev[k] === next[k]);
+        return same ? prev : next;
+      });
+    };
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    root.querySelectorAll<HTMLElement>("[data-el-id]").forEach((n) => ro.observe(n));
+    return () => ro.disconnect();
+  }, [pages, pageIndex, canvasWidth]);
 
   /* ------------------------------------------------------------- thao tác element -- */
   const patchElement = useCallback(
@@ -214,8 +220,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
   const duplicateElement = (id: string) => {
     const el = page.elements.find((e) => e.id === id);
     if (!el) return;
-    const copy = { ...el, id: crypto.randomUUID(), x: el.x + 20, y: el.y + 20 } as BookElement;
-    addElement(copy);
+    addElement({ ...el, id: crypto.randomUUID(), x: el.x + 20, y: el.y + 20 } as BookElement);
   };
 
   const moveLayer = (id: string, dir: -1 | 1) => {
@@ -232,7 +237,30 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
     );
   };
 
-  /* ------------------------------------------------------------------ kéo / resize -- */
+  /* ------------------------------------------------------------------ tải ảnh -- */
+  const uploadImage = async (file: File, onDone: (url: string) => void) => {
+    setStatus("saving");
+    try {
+      const supabase = createClient();
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `books/${book.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from("media").upload(path, file);
+      if (error) throw error;
+      onDone(supabase.storage.from("media").getPublicUrl(path).data.publicUrl);
+      setStatus("idle");
+    } catch (err) {
+      setStatus("error");
+      setMessage(err instanceof Error ? err.message : "Tải ảnh thất bại");
+    }
+  };
+
+  /** mở hộp chọn ảnh — dùng cho cả "thêm ảnh" và "đổi ảnh" */
+  const pickImage = (replaceId: string | null) => {
+    replaceIdRef.current = replaceId;
+    fileRef.current?.click();
+  };
+
+  /* ------------------------------------------------------------------ kéo thả -- */
   const toPageCoords = (e: React.PointerEvent | PointerEvent) => {
     const rect = canvasRef.current!.getBoundingClientRect();
     return { x: (e.clientX - rect.left) / scale, y: (e.clientY - rect.top) / scale };
@@ -247,16 +275,21 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
       if (d.mode === "move") {
         const nx = d.elX + (p.x - d.startX);
         const ny = d.elY + (p.y - d.startY);
-        patchElement(d.id, { x: snapOn ? snap(nx) : Math.round(nx), y: snapOn ? snap(ny) : Math.round(ny) }, false);
+        patchElement(
+          d.id,
+          {
+            x: snapOn ? snap(nx) : Math.round(nx),
+            y: snapOn ? snap(ny) : Math.round(ny),
+          },
+          false,
+        );
       } else if (d.mode === "resize") {
         const nw = Math.max(40, d.w + (p.x - d.startX));
         const nh = Math.max(30, d.h + (p.y - d.startY));
         const el = pages[pageIndex].elements.find((x) => x.id === d.id);
         patchElement(
           d.id,
-          el?.type === "image"
-            ? { w: Math.round(nw), h: Math.round(nh) }
-            : { w: Math.round(nw) },
+          el?.type === "image" ? { w: Math.round(nw), h: Math.round(nh) } : { w: Math.round(nw) },
           false,
         );
       } else if (d.mode === "rotate") {
@@ -270,7 +303,6 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
     const onUp = () => {
       if (!dragRef.current) return;
       dragRef.current = null;
-      // chốt mốc undo = trạng thái TRƯỚC khi kéo
       if (dragSnapshot.current) {
         past.current = [...past.current.slice(-49), dragSnapshot.current];
         future.current = [];
@@ -289,27 +321,64 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
 
   const startDrag = (e: React.PointerEvent, d: Omit<Drag, "startX" | "startY">) => {
     e.stopPropagation();
+    if (editingId) return;
     dragSnapshot.current = pages;
     const p = toPageCoords(e);
     dragRef.current = { ...d, startX: p.x, startY: p.y } as Drag;
+  };
+
+  /* ------------------------------------------------------------- sửa chữ tại chỗ -- */
+  const startEditing = (id: string) => {
+    setSelectedId(id);
+    setEditingId(id);
+  };
+
+  useEffect(() => {
+    if (!editingId) return;
+    const node = editorRef.current;
+    const el = page.elements.find((e) => e.id === editingId);
+    if (!node || !el || el.type !== "text") return;
+
+    node.innerText = el.content;
+    node.focus();
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+  }, [editingId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const stopEditing = () => {
+    const node = editorRef.current;
+    if (node && editingId) patchElement(editingId, { content: node.innerText });
+    setEditingId(null);
   };
 
   /* ----------------------------------------------------------------- phím tắt -- */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      const editable = (e.target as HTMLElement)?.isContentEditable;
+      if (editable || tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
 
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
         e.preventDefault();
         e.shiftKey ? redo() : undo();
         return;
       }
-      if (!selectedId) return;
+      if (!selectedId || !selected) return;
+
       if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
         removeElement(selectedId);
+        return;
       }
+      if (e.key === "Enter" && selected.type === "text") {
+        e.preventDefault();
+        startEditing(selectedId);
+        return;
+      }
+
       const step = e.shiftKey ? GRID : 1;
       const nudge: Record<string, [number, number]> = {
         ArrowLeft: [-step, 0],
@@ -318,7 +387,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
         ArrowDown: [0, step],
       };
       const delta = nudge[e.key];
-      if (delta && selected) {
+      if (delta) {
         e.preventDefault();
         patchElement(selectedId, { x: selected.x + delta[0], y: selected.y + delta[1] });
       }
@@ -327,7 +396,6 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [selectedId, selected, patchElement, undo, redo]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ------------------------------------------------------------- cảnh báo khi thoát -- */
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       if (dirty.current) e.preventDefault();
@@ -335,23 +403,6 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, []);
-
-  /* ------------------------------------------------------------------ upload ảnh -- */
-  const uploadImage = async (file: File, onDone: (url: string) => void) => {
-    setStatus("saving");
-    try {
-      const supabase = createClient();
-      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-      const path = `books/${book.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error } = await supabase.storage.from("media").upload(path, file);
-      if (error) throw error;
-      onDone(supabase.storage.from("media").getPublicUrl(path).data.publicUrl);
-      setStatus("idle");
-    } catch (err) {
-      setStatus("error");
-      setMessage(err instanceof Error ? err.message : "Tải ảnh thất bại");
-    }
-  };
 
   /* --------------------------------------------------------------------- trang -- */
   const addPage = () => {
@@ -393,13 +444,40 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
     if (status === "saving") return "Đang lưu…";
     if (status === "saved") return "Đã lưu ✓";
     if (status === "error") return `Lỗi: ${message}`;
-    return dirty.current ? "Có thay đổi chưa lưu" : "Sẵn sàng";
+    return "Sẵn sàng";
   }, [status, message]);
 
   if (!page) return null;
 
+  const selBox = selected
+    ? {
+        left: selected.x * scale,
+        top: selected.y * scale,
+        width: selected.w * scale,
+        height:
+          (selected.type === "image" ? selected.h : (textHeights[selected.id] ?? 40)) * scale,
+      }
+    : null;
+
   return (
-    <div className="grid gap-4 lg:grid-cols-[190px_minmax(0,1fr)_290px]">
+    <div className="grid gap-4 lg:grid-cols-[168px_minmax(0,1fr)]">
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          const id = replaceIdRef.current;
+          if (f) {
+            void uploadImage(f, (url) =>
+              id ? patchElement(id, { src: url }) : addElement(newImageElement(url)),
+            );
+          }
+          e.target.value = "";
+        }}
+      />
+
       {/* ------------------------------------------------------------ danh sách trang */}
       <aside className="order-2 lg:order-1">
         <div className="mb-2 flex items-center gap-2">
@@ -409,7 +487,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
           </button>
         </div>
 
-        <div className="flex gap-2 overflow-x-auto lg:max-h-[70vh] lg:flex-col lg:overflow-x-visible lg:overflow-y-auto">
+        <div className="flex gap-2 overflow-x-auto lg:max-h-[62vh] lg:flex-col lg:overflow-x-visible lg:overflow-y-auto">
           {pages.map((p, i) => (
             <button
               key={p.id}
@@ -417,6 +495,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
               onClick={() => {
                 setPageIndex(i);
                 setSelectedId(null);
+                setEditingId(null);
               }}
               className={`relative shrink-0 cursor-pointer rounded-lg border-2 bg-white p-1 transition ${
                 i === pageIndex ? "border-brand" : "border-slate-200 hover:border-slate-300"
@@ -425,7 +504,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
               <PageRenderer
                 page={p}
                 ratio={book.page_ratio}
-                width={140}
+                width={126}
                 chrome={chrome}
                 pageNumber={i + 1}
                 totalPages={pages.length}
@@ -437,53 +516,49 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
           ))}
         </div>
 
-        <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className="mt-2 grid grid-cols-2 gap-1.5">
           <button type="button" onClick={() => movePage(-1)} className="adm-btn adm-btn-sm adm-btn-ghost">
-            ↑
+            ↑ Lên
           </button>
           <button type="button" onClick={() => movePage(1)} className="adm-btn adm-btn-sm adm-btn-ghost">
-            ↓
+            ↓ Xuống
           </button>
           <button type="button" onClick={duplicatePage} className="adm-btn adm-btn-sm adm-btn-ghost">
             Nhân bản
           </button>
           <button type="button" onClick={deletePage} className="adm-btn adm-btn-sm adm-btn-danger">
-            Xoá
+            Xoá trang
           </button>
         </div>
       </aside>
 
       {/* -------------------------------------------------------------------- canvas */}
       <div ref={wrapRef} className="order-1 lg:order-2">
-        <div className="mb-2 flex flex-wrap items-center gap-1.5">
-          <button type="button" onClick={() => addElement(newTextElement())} className="adm-btn adm-btn-sm">
-            + Chữ
+        {/* hàng nút chính */}
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <button type="button" onClick={() => addElement(newTextElement())} className={NUT}>
+            ➕ Thêm chữ
           </button>
-          <label className="adm-btn adm-btn-sm adm-btn-ghost cursor-pointer">
-            + Ảnh
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void uploadImage(f, (url) => addElement(newImageElement(url)));
-                e.target.value = "";
-              }}
-            />
-          </label>
-          <button type="button" onClick={undo} className="adm-btn adm-btn-sm adm-btn-ghost" title="Ctrl+Z">
+          <button type="button" onClick={() => pickImage(null)} className={NUT}>
+            🖼️ Thêm ảnh
+          </button>
+          <button type="button" onClick={undo} className={NUT} title="Ctrl+Z">
             ↶ Hoàn tác
           </button>
-          <button type="button" onClick={redo} className="adm-btn adm-btn-sm adm-btn-ghost" title="Ctrl+Shift+Z">
+          <button type="button" onClick={redo} className={NUT} title="Ctrl+Shift+Z">
             ↷ Làm lại
           </button>
-          <label className="flex items-center gap-1.5 text-xs text-slate-600">
-            <input type="checkbox" checked={snapOn} onChange={(e) => setSnapOn(e.target.checked)} className="size-3.5" />
+          <label className="flex h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              checked={snapOn}
+              onChange={(e) => setSnapOn(e.target.checked)}
+              className="size-4"
+            />
             Bám lưới
           </label>
           <span
-            className={`ml-auto text-xs font-semibold ${
+            className={`ml-auto text-sm font-semibold ${
               status === "error" ? "text-red-600" : "text-slate-500"
             }`}
           >
@@ -491,8 +566,34 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
           </span>
         </div>
 
+        {/* thanh công cụ của khối đang chọn */}
+        {selected ? (
+          <div className="mb-2 h-[60px]">
+            <ElementToolbar
+              el={selected}
+              onChange={(patch) => patchElement(selected.id, patch)}
+              onEditText={() => startEditing(selected.id)}
+              onReplaceImage={() => pickImage(selected.id)}
+              onDuplicate={() => duplicateElement(selected.id)}
+              onDelete={() => removeElement(selected.id)}
+              onLayer={(dir) => moveLayer(selected.id, dir)}
+            />
+          </div>
+        ) : (
+          <p className="mb-2 flex h-[60px] items-center rounded-xl border border-dashed border-slate-300 bg-white px-3 text-sm text-slate-500">
+            Bấm vào một khối trên trang để sửa. Bấm hai lần vào khối chữ để gõ trực tiếp.
+          </p>
+        )}
+
         <div className="flex justify-center rounded-xl bg-slate-200 p-3">
-          <div ref={canvasRef} className="relative shadow-lg" onPointerDown={() => setSelectedId(null)}>
+          <div
+            ref={canvasRef}
+            className="relative shadow-lg"
+            onPointerDown={() => {
+              if (editingId) stopEditing();
+              setSelectedId(null);
+            }}
+          >
             <PageRenderer
               page={page}
               ratio={book.page_ratio}
@@ -502,7 +603,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
               totalPages={pages.length}
             />
 
-            {/* lớp tương tác đặt chồng, dùng toạ độ màn hình đã scale */}
+            {/* lớp bắt sự kiện: chọn, kéo, đổi cỡ, xoay */}
             <div className="absolute inset-0">
               {page.elements.map((el) => {
                 const isSel = el.id === selectedId;
@@ -512,6 +613,22 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
                     key={el.id}
                     onPointerDown={(e) => {
                       setSelectedId(el.id);
+                      if (editingId && editingId !== el.id) stopEditing();
+
+                      const now = Date.now();
+                      const nhanh = lastClick.current.id === el.id && now - lastClick.current.t < 800;
+                      lastClick.current = { id: el.id, t: now };
+
+                      if (nhanh) {
+                        // chặn focus mặc định của trình duyệt, nếu không ô soạn
+                        // thảo vừa hiện ra đã bị blur ngay
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (el.type === "text") startEditing(el.id);
+                        else pickImage(el.id);
+                        return;
+                      }
+
                       startDrag(e, { mode: "move", id: el.id, elX: el.x, elY: el.y } as Drag);
                     }}
                     style={{
@@ -522,403 +639,283 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
                       height: h ? h * scale : 24 * scale,
                       transform: el.rotation ? `rotate(${el.rotation}deg)` : undefined,
                       transformOrigin: "center center",
-                      cursor: "move",
-                      outline: isSel ? "2px solid #1667b8" : "1px dashed rgba(22,103,184,.35)",
+                      cursor: editingId === el.id ? "text" : "move",
+                      outline: isSel
+                        ? "2px solid #1667b8"
+                        : "1px dashed rgba(22,103,184,.30)",
                     }}
-                  >
-                    {isSel ? (
-                      <>
-                        <span
-                          onPointerDown={(e) => {
-                            const rect = canvasRef.current!.getBoundingClientRect();
-                            startDrag(e, {
-                              mode: "rotate",
-                              id: el.id,
-                              cx: el.x + el.w / 2,
-                              cy: el.y + (h ?? 40) / 2,
-                              rotation: el.rotation,
-                              start:
-                                (Math.atan2(
-                                  (e.clientY - rect.top) / scale - (el.y + (h ?? 40) / 2),
-                                  (e.clientX - rect.left) / scale - (el.x + el.w / 2),
-                                ) *
-                                  180) /
-                                Math.PI,
-                            } as unknown as Drag);
-                          }}
-                          className="absolute -top-6 left-1/2 size-4 -translate-x-1/2 cursor-grab rounded-full border-2 border-white bg-brand"
-                          title="Xoay"
-                        />
-                        <span
-                          onPointerDown={(e) =>
-                            startDrag(e, {
-                              mode: "resize",
-                              id: el.id,
-                              w: el.w,
-                              h: h ?? 0,
-                            } as Drag)
-                          }
-                          className="absolute -right-1.5 -bottom-1.5 size-3.5 cursor-se-resize rounded-sm border-2 border-white bg-brand"
-                          title="Đổi kích thước"
-                        />
-                      </>
-                    ) : null}
-                  </div>
+                  />
                 );
               })}
             </div>
+
+            {/* tay cầm đổi cỡ / xoay của khối đang chọn */}
+            {selected && selBox && !editingId ? (
+              <>
+                <span
+                  onPointerDown={(e) => {
+                    const rect = canvasRef.current!.getBoundingClientRect();
+                    const cx = selected.x + selected.w / 2;
+                    const cy =
+                      selected.y +
+                      (selected.type === "image" ? selected.h : (textHeights[selected.id] ?? 40)) / 2;
+                    startDrag(e, {
+                      mode: "rotate",
+                      id: selected.id,
+                      cx,
+                      cy,
+                      rotation: selected.rotation,
+                      start:
+                        (Math.atan2(
+                          (e.clientY - rect.top) / scale - cy,
+                          (e.clientX - rect.left) / scale - cx,
+                        ) *
+                          180) /
+                        Math.PI,
+                    } as unknown as Drag);
+                  }}
+                  title="Kéo để xoay"
+                  className="absolute z-20 size-6 cursor-grab rounded-full border-2 border-white bg-brand shadow"
+                  style={{
+                    left: selBox.left + selBox.width / 2 - 12,
+                    top: selBox.top - 34,
+                  }}
+                />
+                <span
+                  onPointerDown={(e) =>
+                    startDrag(e, {
+                      mode: "resize",
+                      id: selected.id,
+                      w: selected.w,
+                      h: selected.type === "image" ? selected.h : 0,
+                    } as Drag)
+                  }
+                  title="Kéo để đổi kích thước"
+                  className="absolute z-20 size-6 cursor-se-resize rounded-md border-2 border-white bg-brand shadow"
+                  style={{
+                    left: selBox.left + selBox.width - 12,
+                    top: selBox.top + selBox.height - 12,
+                  }}
+                />
+              </>
+            ) : null}
+
+            {/* gõ chữ ngay trên trang */}
+            {editingId && selected?.type === "text" ? (
+              <div
+                ref={editorRef}
+                contentEditable
+                suppressContentEditableWarning
+                onPointerDown={(e) => e.stopPropagation()}
+                onBlur={stopEditing}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") (e.target as HTMLElement).blur();
+                }}
+                style={{
+                  position: "absolute",
+                  zIndex: 25,
+                  left: selected.x * scale,
+                  top: selected.y * scale,
+                  width: selected.w * scale,
+                  fontSize: selected.fontSize * scale,
+                  fontFamily: selected.fontFamily,
+                  color: selected.color,
+                  fontWeight: selected.bold ? 700 : 400,
+                  fontStyle: selected.italic ? "italic" : "normal",
+                  textAlign: selected.align,
+                  lineHeight: selected.lineHeight,
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                  background: "rgba(255,255,255,.92)",
+                  outline: "2px solid #1667b8",
+                  padding: 0,
+                }}
+              />
+            ) : null}
           </div>
         </div>
 
         <p className="mt-2 text-center text-xs text-slate-500">
-          Khung {PAGE_WIDTH}×{H} · tỉ lệ {book.page_ratio} · phím mũi tên để dịch chuyển, Delete để xoá
+          Trang {pageIndex + 1}/{pages.length} · khung {PAGE_WIDTH}×{H} · kéo để di chuyển, kéo ô
+          vuông xanh để đổi cỡ, kéo chấm tròn để xoay · phím mũi tên dịch từng chút · Delete để xoá
         </p>
-      </div>
 
-      {/* --------------------------------------------------------------- thuộc tính */}
-      <aside className="order-3 space-y-3">
-        {selected ? (
-          <div className="rounded-xl border border-slate-200 bg-white p-3">
-            <div className="mb-2 flex items-center gap-2">
-              <b className="text-sm">{selected.type === "text" ? "Khối chữ" : "Khối ảnh"}</b>
-              <div className="ml-auto flex gap-1">
-                <button type="button" onClick={() => moveLayer(selected.id, 1)} className="adm-btn adm-btn-sm adm-btn-ghost" title="Lên trước">
-                  ⬆
-                </button>
-                <button type="button" onClick={() => moveLayer(selected.id, -1)} className="adm-btn adm-btn-sm adm-btn-ghost" title="Xuống sau">
-                  ⬇
-                </button>
-              </div>
-            </div>
+        {/* ---------------------------------------------------- cài đặt ít dùng hơn */}
+        <details className="mt-4 rounded-xl border border-slate-200 bg-white p-3">
+          <summary className="cursor-pointer text-sm font-bold">Nền trang &amp; cài đặt chi tiết</summary>
 
-            {selected.type === "text" ? (
-              <TextProps el={selected} onChange={(patch) => patchElement(selected.id, patch)} />
-            ) : (
-              <ImageProps
-                el={selected}
-                onChange={(patch) => patchElement(selected.id, patch)}
-                onUpload={(file) => uploadImage(file, (url) => patchElement(selected.id, { src: url }))}
-              />
-            )}
-
-            <div className="mt-3 grid grid-cols-2 gap-x-3">
+          <div className="mt-3 grid gap-4 md:grid-cols-2">
+            <div>
+              <b className="mb-2 block text-sm">Nền trang {pageIndex + 1}</b>
               <label className="adm-field">
-                <span>X</span>
+                <span>Màu nền</span>
                 <input
-                  type="number"
-                  value={selected.x}
-                  onChange={(e) => patchElement(selected.id, { x: Number(e.target.value) })}
-                  className="adm-input"
+                  type="color"
+                  value={page.background}
+                  onChange={(e) =>
+                    commit((prev) =>
+                      prev.map((p, i) => (i === pageIndex ? { ...p, background: e.target.value } : p)),
+                    )
+                  }
+                  className="h-11 w-20 rounded-lg border border-slate-200 bg-white p-1"
                 />
               </label>
               <label className="adm-field">
-                <span>Y</span>
+                <span>Ảnh nền (đường dẫn)</span>
                 <input
-                  type="number"
-                  value={selected.y}
-                  onChange={(e) => patchElement(selected.id, { y: Number(e.target.value) })}
-                  className="adm-input"
-                />
-              </label>
-            </div>
-
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() =>
-                  patchElement(selected.id, { x: Math.round((PAGE_WIDTH - selected.w) / 2) })
-                }
-                className="adm-btn adm-btn-sm adm-btn-ghost"
-              >
-                Căn giữa ngang
-              </button>
-              <button type="button" onClick={() => duplicateElement(selected.id)} className="adm-btn adm-btn-sm adm-btn-ghost">
-                Nhân bản
-              </button>
-              <button type="button" onClick={() => removeElement(selected.id)} className="adm-btn adm-btn-sm adm-btn-danger">
-                Xoá
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="rounded-xl border border-slate-200 bg-white p-3">
-            <b className="mb-2 block text-sm">Trang {pageIndex + 1}</b>
-            <label className="adm-field">
-              <span>Màu nền</span>
-              <input
-                type="color"
-                value={page.background}
-                onChange={(e) =>
-                  commit((prev) =>
-                    prev.map((p, i) => (i === pageIndex ? { ...p, background: e.target.value } : p)),
-                  )
-                }
-                className="h-10 w-16 rounded-lg border border-slate-200 bg-white p-1"
-              />
-            </label>
-            <label className="adm-field">
-              <span>Ảnh nền (URL)</span>
-              <input
-                type="text"
-                value={page.background_image ?? ""}
-                placeholder="/canva/….webp"
-                onChange={(e) =>
-                  commit((prev) =>
-                    prev.map((p, i) =>
-                      i === pageIndex ? { ...p, background_image: e.target.value || null } : p,
-                    ),
-                  )
-                }
-                className="adm-input"
-              />
-            </label>
-            <label className="adm-btn adm-btn-sm adm-btn-ghost cursor-pointer">
-              Tải ảnh nền
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f)
-                    void uploadImage(f, (url) =>
-                      commit((prev) =>
-                        prev.map((p, i) => (i === pageIndex ? { ...p, background_image: url } : p)),
+                  type="text"
+                  value={page.background_image ?? ""}
+                  placeholder="/tin/bg-trang.webp"
+                  onChange={(e) =>
+                    commit((prev) =>
+                      prev.map((p, i) =>
+                        i === pageIndex ? { ...p, background_image: e.target.value || null } : p,
                       ),
-                    );
-                  e.target.value = "";
-                }}
-              />
-            </label>
-            <p className="mt-3 text-xs text-slate-500">
-              Bấm vào một khối trên trang để sửa thuộc tính của khối đó.
-            </p>
-          </div>
-        )}
+                    )
+                  }
+                  className="adm-input"
+                />
+              </label>
 
-        <ChromePanel chrome={chrome} onChange={patchChrome} />
+              {selected?.type === "text" ? (
+                <>
+                  <label className="adm-field">
+                    <span>Phông chữ</span>
+                    <select
+                      value={(selected as TextElement).fontFamily}
+                      onChange={(e) => patchElement(selected.id, { fontFamily: e.target.value })}
+                      className="adm-input"
+                    >
+                      {FONT_FAMILIES.map((f) => (
+                        <option key={f.value} value={f.value}>
+                          {f.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="adm-field">
+                    <span>Giãn dòng</span>
+                    <input
+                      type="number"
+                      step={0.05}
+                      value={(selected as TextElement).lineHeight}
+                      onChange={(e) =>
+                        patchElement(selected.id, { lineHeight: Number(e.target.value) })
+                      }
+                      className="adm-input"
+                    />
+                  </label>
+                  <label className="adm-field">
+                    <span>Link khi bấm vào (tuỳ chọn)</span>
+                    <input
+                      type="text"
+                      value={(selected as TextElement).href ?? ""}
+                      placeholder="https://…"
+                      onChange={(e) =>
+                        patchElement(selected.id, { href: e.target.value || undefined })
+                      }
+                      className="adm-input"
+                    />
+                  </label>
+                </>
+              ) : null}
+
+              {selected?.type === "image" ? (
+                <>
+                  <div className="grid grid-cols-2 gap-x-3">
+                    <label className="adm-field">
+                      <span>Rộng</span>
+                      <input
+                        type="number"
+                        value={(selected as ImageElement).w}
+                        onChange={(e) => patchElement(selected.id, { w: Number(e.target.value) })}
+                        className="adm-input"
+                      />
+                    </label>
+                    <label className="adm-field">
+                      <span>Cao</span>
+                      <input
+                        type="number"
+                        value={(selected as ImageElement).h}
+                        onChange={(e) => patchElement(selected.id, { h: Number(e.target.value) })}
+                        className="adm-input"
+                      />
+                    </label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-3">
+                    <label className="adm-field">
+                      <span>Viền (px)</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={(selected as ImageElement).borderWidth}
+                        onChange={(e) =>
+                          patchElement(selected.id, { borderWidth: Number(e.target.value) })
+                        }
+                        className="adm-input"
+                      />
+                    </label>
+                    <label className="adm-field">
+                      <span>Màu viền</span>
+                      <input
+                        type="color"
+                        value={(selected as ImageElement).borderColor}
+                        onChange={(e) => patchElement(selected.id, { borderColor: e.target.value })}
+                        className="h-11 w-20 rounded-lg border border-slate-200 bg-white p-1"
+                      />
+                    </label>
+                  </div>
+                </>
+              ) : null}
+
+              {selected ? (
+                <div className="grid grid-cols-2 gap-x-3">
+                  <label className="adm-field">
+                    <span>Vị trí ngang (X)</span>
+                    <input
+                      type="number"
+                      value={selected.x}
+                      onChange={(e) => patchElement(selected.id, { x: Number(e.target.value) })}
+                      className="adm-input"
+                    />
+                  </label>
+                  <label className="adm-field">
+                    <span>Vị trí dọc (Y)</span>
+                    <input
+                      type="number"
+                      value={selected.y}
+                      onChange={(e) => patchElement(selected.id, { y: Number(e.target.value) })}
+                      className="adm-input"
+                    />
+                  </label>
+                </div>
+              ) : null}
+
+              {selected ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    patchElement(selected.id, { x: Math.round((PAGE_WIDTH - selected.w) / 2) })
+                  }
+                  className="adm-btn adm-btn-sm adm-btn-ghost"
+                >
+                  Căn giữa khối theo chiều ngang
+                </button>
+              ) : null}
+            </div>
+
+            <ChromePanel chrome={chrome} onChange={patchChrome} />
+          </div>
+        </details>
 
         <button
           type="button"
           onClick={() => void persist(pages)}
-          className="adm-btn w-full justify-center"
+          className="adm-btn mt-3 h-11 w-full justify-center text-base"
         >
           Lưu ngay
         </button>
-      </aside>
+      </div>
     </div>
-  );
-}
-
-/* ------------------------------------------------------------------ panel chữ -- */
-
-function TextProps({
-  el,
-  onChange,
-}: {
-  el: TextElement;
-  onChange: (patch: Partial<TextElement>) => void;
-}) {
-  return (
-    <>
-      <label className="adm-field">
-        <span>Nội dung</span>
-        <textarea
-          value={el.content}
-          onChange={(e) => onChange({ content: e.target.value })}
-          className="adm-input min-h-24"
-        />
-      </label>
-
-      <label className="adm-field">
-        <span>Link khi bấm vào (tuỳ chọn)</span>
-        <input
-          type="text"
-          value={el.href ?? ""}
-          onChange={(e) => onChange({ href: e.target.value || undefined })}
-          placeholder="https://hanoimoi.vn/…"
-          className="adm-input"
-        />
-      </label>
-
-      <label className="adm-field">
-        <span>Phông chữ</span>
-        <select
-          value={el.fontFamily}
-          onChange={(e) => onChange({ fontFamily: e.target.value })}
-          className="adm-input"
-        >
-          {FONT_FAMILIES.map((f) => (
-            <option key={f.value} value={f.value}>
-              {f.label}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <div className="grid grid-cols-2 gap-x-3">
-        <label className="adm-field">
-          <span>Cỡ chữ</span>
-          <input
-            type="number"
-            min={8}
-            value={el.fontSize}
-            onChange={(e) => onChange({ fontSize: Number(e.target.value) })}
-            className="adm-input"
-          />
-        </label>
-        <label className="adm-field">
-          <span>Giãn dòng</span>
-          <input
-            type="number"
-            step={0.05}
-            value={el.lineHeight}
-            onChange={(e) => onChange({ lineHeight: Number(e.target.value) })}
-            className="adm-input"
-          />
-        </label>
-      </div>
-
-      <div className="grid grid-cols-2 gap-x-3">
-        <label className="adm-field">
-          <span>Màu chữ</span>
-          <input
-            type="color"
-            value={el.color}
-            onChange={(e) => onChange({ color: e.target.value })}
-            className="h-10 w-16 rounded-lg border border-slate-200 bg-white p-1"
-          />
-        </label>
-        <label className="adm-field">
-          <span>Căn lề</span>
-          <select
-            value={el.align}
-            onChange={(e) => onChange({ align: e.target.value as TextElement["align"] })}
-            className="adm-input"
-          >
-            <option value="left">Trái</option>
-            <option value="center">Giữa</option>
-            <option value="right">Phải</option>
-          </select>
-        </label>
-      </div>
-
-      <div className="flex gap-1.5">
-        <button
-          type="button"
-          onClick={() => onChange({ bold: !el.bold })}
-          className={`adm-btn adm-btn-sm ${el.bold ? "" : "adm-btn-ghost"}`}
-        >
-          <b>B</b>
-        </button>
-        <button
-          type="button"
-          onClick={() => onChange({ italic: !el.italic })}
-          className={`adm-btn adm-btn-sm ${el.italic ? "" : "adm-btn-ghost"}`}
-        >
-          <i>I</i>
-        </button>
-      </div>
-    </>
-  );
-}
-
-/* ------------------------------------------------------------------ panel ảnh -- */
-
-function ImageProps({
-  el,
-  onChange,
-  onUpload,
-}: {
-  el: ImageElement;
-  onChange: (patch: Partial<ImageElement>) => void;
-  onUpload: (file: File) => void;
-}) {
-  return (
-    <>
-      <label className="adm-btn adm-btn-sm adm-btn-ghost mb-2 cursor-pointer">
-        Đổi ảnh
-        <input
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) onUpload(f);
-            e.target.value = "";
-          }}
-        />
-      </label>
-
-      <div className="grid grid-cols-2 gap-x-3">
-        <label className="adm-field">
-          <span>Rộng</span>
-          <input
-            type="number"
-            value={el.w}
-            onChange={(e) => onChange({ w: Number(e.target.value) })}
-            className="adm-input"
-          />
-        </label>
-        <label className="adm-field">
-          <span>Cao</span>
-          <input
-            type="number"
-            value={el.h}
-            onChange={(e) => onChange({ h: Number(e.target.value) })}
-            className="adm-input"
-          />
-        </label>
-      </div>
-
-      <div className="grid grid-cols-2 gap-x-3">
-        <label className="adm-field">
-          <span>Bo góc</span>
-          <input
-            type="number"
-            min={0}
-            value={el.radius}
-            onChange={(e) => onChange({ radius: Number(e.target.value) })}
-            className="adm-input"
-          />
-        </label>
-        <label className="adm-field">
-          <span>Độ mờ</span>
-          <input
-            type="number"
-            min={0.1}
-            max={1}
-            step={0.05}
-            value={el.opacity}
-            onChange={(e) => onChange({ opacity: Number(e.target.value) })}
-            className="adm-input"
-          />
-        </label>
-      </div>
-
-      <div className="grid grid-cols-2 gap-x-3">
-        <label className="adm-field">
-          <span>Cách lấp khung</span>
-          <select
-            value={el.fit}
-            onChange={(e) => onChange({ fit: e.target.value as ImageElement["fit"] })}
-            className="adm-input"
-          >
-            <option value="cover">Cắt vừa khung</option>
-            <option value="contain">Hiện trọn ảnh</option>
-          </select>
-        </label>
-        <label className="adm-field">
-          <span>Viền (px)</span>
-          <input
-            type="number"
-            min={0}
-            value={el.borderWidth}
-            onChange={(e) => onChange({ borderWidth: Number(e.target.value) })}
-            className="adm-input"
-          />
-        </label>
-      </div>
-    </>
   );
 }

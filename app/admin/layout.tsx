@@ -7,12 +7,12 @@ import { signOut } from "./actions";
 export const metadata = { title: "Quản trị nội dung" };
 
 const NAV = [
-  { href: "/admin", label: "Tổng quan" },
-  { href: "/admin/settings", label: "Cấu hình" },
-  { href: "/admin/stats", label: "Số liệu" },
-  { href: "/admin/media", label: "Ảnh nổi bật" },
-  { href: "/admin/clusters", label: "Các cụm" },
+  { href: "/admin", label: "Trang chính" },
   { href: "/admin/books", label: "Sách lật" },
+  { href: "/admin/clusters", label: "Các ban" },
+  { href: "/admin/media", label: "Ảnh nổi bật" },
+  { href: "/admin/stats", label: "Số liệu" },
+  { href: "/admin/settings", label: "Cấu hình" },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -49,13 +49,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <header className="sticky top-0 z-30 bg-brand-deep text-sky-50 shadow-md">
         <div className="mx-auto flex max-w-[1100px] flex-wrap items-center gap-1 px-5 py-2">
           <Emblem className="mr-2 size-7" />
-          <span className="mr-3 font-extrabold">Quản trị nội dung</span>
+          <span className="mr-3 text-lg font-extrabold">Quản trị nội dung</span>
 
           {NAV.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="rounded-md px-2.5 py-1.5 text-sm font-semibold text-sky-100 transition-colors hover:bg-brand hover:text-white"
+              className="rounded-lg px-3 py-2 text-[0.95rem] font-semibold text-sky-100 transition-colors hover:bg-brand hover:text-white"
             >
               {item.label}
             </Link>
@@ -63,7 +63,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link
             href="/"
             target="_blank"
-            className="rounded-md px-2.5 py-1.5 text-sm font-semibold text-sky-100 transition-colors hover:bg-brand hover:text-white"
+            className="rounded-lg px-3 py-2 text-[0.95rem] font-semibold text-sky-100 transition-colors hover:bg-brand hover:text-white"
           >
             Xem site ↗
           </Link>
