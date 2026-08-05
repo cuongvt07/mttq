@@ -242,33 +242,37 @@ export async function deleteUnit(form: FormData) {
 
 export async function createMedia(form: FormData) {
   const supabase = await createClient();
+  const bookId = nullable(form, "book_id");
+
   await supabase.from("media_items").insert({
-    caption: str(form, "caption"),
-    image_url: nullable(form, "image_url"),
-    link_url: nullable(form, "link_url"),
-    flipbook_url: nullable(form, "flipbook_url"),
-    orientation: str(form, "orientation") === "portrait" ? "portrait" : "landscape",
+    book_id: bookId,
+    // đã chọn sách thì ảnh, tên và link lấy từ sách — không lưu bản nhập tay
+    caption: bookId ? "" : str(form, "caption"),
+    image_url: bookId ? null : nullable(form, "image_url"),
+    link_url: bookId ? null : nullable(form, "link_url"),
+    orientation: "landscape",
     sort_order: num(form, "sort_order"),
     is_visible: true,
   });
-  refresh("/admin/media");
+  refresh("/admin/settings");
 }
 
 export async function updateMedia(form: FormData) {
   const supabase = await createClient();
+  const bookId = nullable(form, "book_id");
+
   await supabase
     .from("media_items")
     .update({
-      caption: str(form, "caption"),
-      image_url: nullable(form, "image_url"),
-      link_url: nullable(form, "link_url"),
-      flipbook_url: nullable(form, "flipbook_url"),
-      orientation: str(form, "orientation") === "portrait" ? "portrait" : "landscape",
+      book_id: bookId,
+      caption: bookId ? "" : str(form, "caption"),
+      image_url: bookId ? null : nullable(form, "image_url"),
+      link_url: bookId ? null : nullable(form, "link_url"),
       sort_order: num(form, "sort_order"),
       is_visible: bool(form, "is_visible"),
     })
     .eq("id", str(form, "id"));
-  refresh("/admin/media");
+  refresh("/admin/settings");
 }
 
 export async function deleteMedia(form: FormData) {

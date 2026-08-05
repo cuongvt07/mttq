@@ -53,6 +53,10 @@ export type MediaItem = {
   link_url: string | null;
   /** Link flip-book (Heyzine…) — bấm vào thẻ sẽ mở ngay trong trang */
   flipbook_url: string | null;
+  /** Trỏ tới một cuốn sách lật: ảnh và tên lấy tự động từ sách đó */
+  book_id: string | null;
+  /** thông tin sách đã ghép sẵn khi hiển thị ngoài trang chủ */
+  book?: { title: string; slug: string; cover: string | null } | null;
   orientation: "landscape" | "portrait";
   sort_order: number;
   is_visible: boolean;

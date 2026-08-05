@@ -10,31 +10,30 @@ import SectionShell from "./SectionShell";
 function MediaCard({ item, index }: { item: MediaItem; index: number }) {
   const contain = item.orientation === "portrait";
 
+  // Mục đã chọn sách: ảnh bìa và tên lấy thẳng từ sách, bấm vào mở sách lật
+  const anh = item.book?.cover ?? item.image_url;
+  const chu = item.book?.title ?? item.caption;
+  const dichSach = item.book ? `/sach/${item.book.slug}` : null;
+
   const inner = (
     <>
       <div className="relative overflow-hidden">
-      <div
-        className={`aspect-16/10 grid place-items-center bg-center text-xs font-bold ${
-          contain ? "bg-contain bg-no-repeat" : "bg-cover"
-        } ${
-          item.image_url
-            ? "bg-slate-100"
-            : "bg-linear-to-br from-lime-100 to-lime-300 text-lime-900"
-        }`}
-        style={item.image_url ? { backgroundImage: `url('${item.image_url}')` } : undefined}
-      >
-        {item.image_url ? null : "Ảnh / Video"}
+        <div
+          className={`aspect-16/10 grid place-items-center bg-center text-xs font-bold ${
+            contain ? "bg-contain bg-no-repeat" : "bg-cover"
+          } ${anh ? "bg-slate-100" : "bg-linear-to-br from-lime-100 to-lime-300 text-lime-900"}`}
+          style={anh ? { backgroundImage: `url('${anh}')` } : undefined}
+        >
+          {anh ? null : "Ảnh / Video"}
+        </div>
+        {dichSach || item.flipbook_url ? (
+          <span className="absolute top-2 right-2 rounded-md bg-black/55 px-2 py-1 text-[0.62rem] font-bold text-white backdrop-blur-sm">
+            📖 Xem
+          </span>
+        ) : null}
       </div>
-      {item.flipbook_url ? (
-        <span className="absolute top-2 right-2 rounded-md bg-black/55 px-2 py-1 text-[0.62rem] font-bold text-white backdrop-blur-sm">
-          📖 Xem
-        </span>
-      ) : null}
-      </div>
-      {item.caption ? (
-        <p className="px-3 py-2.5 text-[0.8rem] leading-snug font-semibold text-slate-700">
-          {item.caption}
-        </p>
+      {chu ? (
+        <p className="px-3 py-2.5 text-[0.8rem] leading-snug font-semibold text-slate-700">{chu}</p>
       ) : null}
     </>
   );
@@ -46,6 +45,14 @@ function MediaCard({ item, index }: { item: MediaItem; index: number }) {
     "data-reveal": "",
     style: { "--reveal-delay": `${index * 70}ms` } as React.CSSProperties,
   };
+
+  if (dichSach) {
+    return (
+      <a className={className} href={dichSach} {...revealProps}>
+        {inner}
+      </a>
+    );
+  }
 
   if (item.flipbook_url) {
     return (

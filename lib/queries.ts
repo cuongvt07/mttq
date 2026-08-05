@@ -16,6 +16,34 @@ import type {
   Unit,
 } from "./types";
 
+type MediaRow = MediaItem & {
+  books: {
+    title: string;
+    slug: string;
+    cover_url: string | null;
+    book_pages: { sort_order: number; background_image: string | null }[];
+  } | null;
+};
+
+/** Gắn thông tin sách (ảnh bìa, tên) vào mục đã chọn sách. */
+function ghepSach(rows: MediaRow[] | null): MediaItem[] | null {
+  if (!rows) return null;
+  return rows.map(({ books, ...m }) => ({
+    ...m,
+    book: books
+      ? {
+          title: books.title,
+          slug: books.slug,
+          cover:
+            books.cover_url ??
+            [...(books.book_pages ?? [])].sort((a, b) => a.sort_order - b.sort_order)[0]
+              ?.background_image ??
+            null,
+        }
+      : null,
+  }));
+}
+
 /**
  * Lấy toàn bộ dữ liệu trang chủ từ Supabase.
  * Nếu chưa cấu hình / chưa chạy schema.sql thì rơi về dữ liệu mẫu để trang vẫn chạy.
@@ -35,7 +63,11 @@ export async function getSiteData(): Promise<SiteData> {
         .eq("is_published", true)
         .order("sort_order")
         .order("sort_order", { referencedTable: "units" }),
-      supabase.from("media_items").select("*").eq("is_visible", true).order("sort_order"),
+      supabase
+        .from("media_items")
+        .select("*, books(title, slug, cover_url, book_pages(sort_order, background_image))")
+        .eq("is_visible", true)
+        .order("sort_order"),
     ]);
 
     // Bảng chưa tồn tại => dùng dữ liệu mẫu
@@ -47,7 +79,7 @@ export async function getSiteData(): Promise<SiteData> {
       settings: (settingsRes.data as SiteSettings | null) ?? FALLBACK_SETTINGS,
       stats: (statsRes.data as Stat[] | null) ?? FALLBACK_STATS,
       clusters: clusters.length ? clusters : FALLBACK_CLUSTERS,
-      media: (mediaRes.data as MediaItem[] | null) ?? FALLBACK_MEDIA,
+      media: ghepSach((mediaRes.data as MediaRow[] | null) ?? null) ?? FALLBACK_MEDIA,
       usingFallback: false,
     };
   } catch {
