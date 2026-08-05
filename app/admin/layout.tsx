@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Emblem from "@/components/Emblem";
+import ToastHost from "@/components/admin/Toast";
 import { isAdminEmail } from "@/lib/admin-auth";
 import { createClient } from "@/utils/supabase/server";
 import { signOut } from "./actions";
@@ -80,6 +81,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </header>
 
       <div className="mx-auto max-w-[1100px] px-5 pt-6 pb-16">{children}</div>
+      <ToastHost />
     </div>
   );
 }

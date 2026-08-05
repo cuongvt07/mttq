@@ -91,19 +91,25 @@
     @apply w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900
            outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-200;
   }
+  /* Nút dùng chung: mọi nút cùng một cấu trúc, biến thể chỉ đổi màu. */
   .adm-btn {
-    @apply inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-brand px-4 py-2
-           text-sm font-bold text-white transition-colors hover:bg-brand-dark
+    @apply inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-lg
+           border border-transparent px-3.5 text-sm font-semibold shadow-sm transition-colors
            disabled:cursor-not-allowed disabled:opacity-60;
+    @apply bg-brand text-white hover:bg-brand-dark;
   }
   .adm-btn-ghost {
-    @apply bg-slate-100 text-slate-700 hover:bg-slate-200;
+    @apply border-slate-200 bg-white text-slate-700 hover:bg-slate-100 active:bg-slate-200;
   }
   .adm-btn-danger {
-    @apply bg-slate-100 text-red-700 hover:bg-red-100;
+    @apply border-slate-200 bg-white text-red-600 hover:bg-red-50;
+  }
+  /* trạng thái đang bật của nút bật/tắt */
+  .adm-btn-on {
+    @apply border-brand bg-brand text-white hover:bg-brand-dark;
   }
   .adm-btn-sm {
-    @apply px-3 py-1.5 text-xs;
+    @apply h-9 px-3 text-xs;
   }
   .adm-panel {
     @apply mb-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm;

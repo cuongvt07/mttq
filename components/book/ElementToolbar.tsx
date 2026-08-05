@@ -7,13 +7,10 @@ import type { BookElement, ImageElement, TextElement } from "@/lib/book-types";
  * Chỉ để những thao tác hay dùng nhất, nút to, có chữ tiếng Việt.
  */
 
-const BTN =
-  "flex h-10 min-w-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-slate-200 " +
-  "bg-white px-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-100 active:bg-slate-200";
-/** nút đang bật — viết đủ class để không bị bg-white của BTN đè lên */
-const BTN_ON =
-  "flex h-10 min-w-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg " +
-  "border border-brand bg-brand px-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-dark";
+/** mọi nút cùng cấu trúc (.adm-btn), biến thể chỉ khác màu */
+const BTN = "adm-btn adm-btn-ghost";
+const BTN_ON = "adm-btn adm-btn-on";
+const BTN_XOA = "adm-btn adm-btn-danger";
 
 export default function ElementToolbar({
   el,
@@ -56,7 +53,7 @@ export default function ElementToolbar({
           <span className="flex shrink-0 items-center overflow-hidden rounded-lg border border-slate-200">
             <button
               type="button"
-              className="h-10 w-9 cursor-pointer bg-white text-lg font-bold hover:bg-slate-100"
+              className="h-10 w-9 cursor-pointer bg-white text-slate-700 text-lg font-bold hover:bg-slate-100"
               onClick={() => onChange({ fontSize: Math.max(8, chu.fontSize - 2) })}
               title="Chữ nhỏ lại"
             >
@@ -67,7 +64,7 @@ export default function ElementToolbar({
             </span>
             <button
               type="button"
-              className="h-10 w-9 cursor-pointer bg-white text-lg font-bold hover:bg-slate-100"
+              className="h-10 w-9 cursor-pointer bg-white text-slate-700 text-lg font-bold hover:bg-slate-100"
               onClick={() => onChange({ fontSize: chu.fontSize + 2 })}
               title="Chữ to lên"
             >
@@ -125,7 +122,7 @@ export default function ElementToolbar({
           <span className="flex shrink-0 items-center overflow-hidden rounded-lg border border-slate-200">
             <button
               type="button"
-              className="h-10 w-9 cursor-pointer bg-white font-bold hover:bg-slate-100"
+              className="h-10 w-9 cursor-pointer bg-white text-slate-700 font-bold hover:bg-slate-100"
               onClick={() => onChange({ radius: Math.max(0, anh.radius - 4) })}
               title="Bớt bo góc"
             >
@@ -136,7 +133,7 @@ export default function ElementToolbar({
             </span>
             <button
               type="button"
-              className="h-10 w-9 cursor-pointer bg-white font-bold hover:bg-slate-100"
+              className="h-10 w-9 cursor-pointer bg-white text-slate-700 font-bold hover:bg-slate-100"
               onClick={() => onChange({ radius: anh.radius + 4 })}
               title="Bo góc nhiều hơn"
             >
@@ -159,7 +156,7 @@ export default function ElementToolbar({
       </button>
       <button
         type="button"
-        className={`${BTN} text-red-600 hover:bg-red-50`}
+        className={BTN_XOA}
         onClick={onDelete}
         title="Xoá khối này"
       >

@@ -17,6 +17,7 @@ import {
 } from "@/lib/book-types";
 import { createClient } from "@/utils/supabase/client";
 import { saveBookChrome, saveBookPages } from "@/app/admin/books/actions";
+import { toast } from "@/components/admin/Toast";
 import ChromePanel from "./ChromePanel";
 import ElementToolbar from "./ElementToolbar";
 import PageRenderer from "./PageRenderer";
@@ -34,9 +35,7 @@ const O_INPUT =
   "rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-900 outline-none " +
   "focus:border-sky-400 focus:ring-2 focus:ring-sky-200";
 
-const NUT =
-  "flex h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 " +
-  "text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-100 active:bg-slate-200";
+const NUT = "adm-btn adm-btn-ghost";
 
 export default function BookEditor({ book }: { book: BookWithPages }) {
   const [pages, setPages] = useState<BookPage[]>(book.pages.length ? book.pages : [emptyPage()]);
@@ -85,17 +84,20 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
   }, []);
 
   /* --------------------------------------------------------------- lưu / autosave -- */
+  /** quiet = tự lưu ngầm, không bắn toast (trạng thái góc phải đã báo rồi) */
   const persist = useCallback(
-    async (next: BookPage[]) => {
+    async (next: BookPage[], quiet = false) => {
       setStatus("saving");
       const res = await saveBookPages(book.id, next);
       if (res.ok) {
         dirty.current = false;
         setStatus("saved");
         setMessage("");
+        if (!quiet) toast("Đã lưu");
       } else {
         setStatus("error");
         setMessage(res.error);
+        toast("Lưu thất bại: " + res.error, "error");
       }
     },
     [book.id],
@@ -105,7 +107,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
     (next: BookPage[]) => {
       dirty.current = true;
       if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => void persist(next), 1200);
+      saveTimer.current = setTimeout(() => void persist(next, true), 1200);
     },
     [persist],
   );
@@ -144,7 +146,8 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
 
   const undo = useCallback(() => {
     const prev = past.current.pop();
-    if (!prev) return;
+    if (!prev) return toast("Không còn gì để hoàn tác", "info");
+    toast("Đã hoàn tác", "info");
     setPages((cur) => {
       future.current = [...future.current, cur];
       scheduleSave(prev);
@@ -154,7 +157,8 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
 
   const redo = useCallback(() => {
     const next = future.current.pop();
-    if (!next) return;
+    if (!next) return toast("Không còn gì để làm lại", "info");
+    toast("Đã làm lại", "info");
     setPages((cur) => {
       past.current = [...past.current, cur];
       scheduleSave(next);
@@ -208,6 +212,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
   );
 
   const addElement = (el: BookElement) => {
+    toast(el.type === "text" ? "Đã thêm khối chữ" : "Đã thêm ảnh");
     commit((prev) =>
       prev.map((p, i) => (i === pageIndex ? { ...p, elements: [...p.elements, el] } : p)),
     );
@@ -215,6 +220,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
   };
 
   const removeElement = (id: string) => {
+    toast("Đã xoá khối", "info");
     commit((prev) =>
       prev.map((p, i) =>
         i === pageIndex ? { ...p, elements: p.elements.filter((e) => e.id !== id) } : p,
@@ -227,6 +233,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
     const el = page.elements.find((e) => e.id === id);
     if (!el) return;
     addElement({ ...el, id: crypto.randomUUID(), x: el.x + 20, y: el.y + 20 } as BookElement);
+    toast("Đã nhân bản khối");
   };
 
   const moveLayer = (id: string, dir: -1 | 1) => {
@@ -254,9 +261,12 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
       if (error) throw error;
       onDone(supabase.storage.from("media").getPublicUrl(path).data.publicUrl);
       setStatus("idle");
+      toast("Đã tải ảnh lên");
     } catch (err) {
       setStatus("error");
-      setMessage(err instanceof Error ? err.message : "Tải ảnh thất bại");
+      const loi = err instanceof Error ? err.message : "Tải ảnh thất bại";
+      setMessage(loi);
+      toast(loi, "error");
     }
   };
 
@@ -415,6 +425,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
     commit((prev) => [...prev.slice(0, pageIndex + 1), emptyPage(), ...prev.slice(pageIndex + 1)]);
     setPageIndex((i) => i + 1);
     setSelectedId(null);
+    toast("Đã thêm trang mới");
   };
 
   const duplicatePage = () => {
@@ -425,6 +436,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
     };
     commit((prev) => [...prev.slice(0, pageIndex + 1), copy, ...prev.slice(pageIndex + 1)]);
     setPageIndex((i) => i + 1);
+    toast("Đã nhân bản trang");
   };
 
   const deletePage = () => {
@@ -433,6 +445,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
     commit((prev) => prev.filter((_, i) => i !== pageIndex));
     setPageIndex((i) => Math.max(0, i - 1));
     setSelectedId(null);
+    toast("Đã xoá trang", "info");
   };
 
   const movePage = (dir: -1 | 1) => {
@@ -589,9 +602,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
             />
           </div>
         ) : (
-          <p className="mb-2 flex h-[60px] items-center rounded-xl border border-dashed border-slate-300 bg-white px-3 text-sm text-slate-500">
-            Bấm vào một khối trên trang để sửa. Bấm hai lần vào khối chữ để gõ trực tiếp.
-          </p>
+          <div className="mb-2 h-[60px]" aria-hidden />
         )}
 
         {/* ---------------------------------------- tuỳ chọn chi tiết, thu gọn ở trên */}
