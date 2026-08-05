@@ -67,10 +67,6 @@ export default async function ClustersPage() {
               <input type="number" name="sort_order" defaultValue={nextOrder} className="adm-input" />
             </label>
           </div>
-          <label className="adm-field">
-            <span>Slug (để trống sẽ tự sinh từ tên)</span>
-            <input type="text" name="slug" placeholder="cum-12" className="adm-input" />
-          </label>
           <button type="submit" className="adm-btn">
             Tạo cụm
           </button>

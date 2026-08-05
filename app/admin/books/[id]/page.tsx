@@ -42,8 +42,10 @@ export default async function BookEditorPage({ params }: { params: Promise<{ id:
               <input type="text" name="title" defaultValue={book.title} required className="adm-input" />
             </label>
             <label className="adm-field">
-              <span>Slug (đường dẫn)</span>
-              <input type="text" name="slug" defaultValue={book.slug} className="adm-input" />
+              <span>Đường dẫn công khai (tự sinh)</span>
+              <span className="flex h-10 items-center rounded-lg bg-slate-100 px-3 font-mono text-sm text-slate-500">
+                /sach/{book.slug}
+              </span>
             </label>
           </div>
           <div className="grid gap-x-4 sm:grid-cols-2">

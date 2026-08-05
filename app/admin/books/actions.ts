@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { BookPage, PageChrome } from "@/lib/book-types";
-import { slugify } from "@/lib/slug";
+import { uniqueSlug } from "@/lib/unique-slug";
 import { createClient } from "@/utils/supabase/server";
 
 function str(form: FormData, key: string): string {
@@ -13,8 +13,7 @@ function str(form: FormData, key: string): string {
 export async function createBook(form: FormData) {
   const supabase = await createClient();
   const title = str(form, "title") || "Sách mới";
-  const base = slugify(title) || "sach";
-  const slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
+  const slug = await uniqueSlug(supabase, "books", title, "sach");
 
   const { data, error } = await supabase
     .from("books")
@@ -38,7 +37,6 @@ export async function updateBookMeta(form: FormData) {
     .from("books")
     .update({
       title: str(form, "title"),
-      slug: str(form, "slug") || undefined,
       page_ratio: str(form, "page_ratio"),
       cover_url: str(form, "cover_url") || null,
       is_published: form.get("is_published") === "on",
@@ -75,7 +73,7 @@ export async function duplicateBook(form: FormData) {
   };
 
   const title = `${meta.title} (bản sao)`;
-  const slug = `${meta.slug}-${Math.random().toString(36).slice(2, 6)}`;
+  const slug = await uniqueSlug(supabase, "books", title, "sach");
 
   const { data: moi, error: e2 } = await supabase
     .from("books")

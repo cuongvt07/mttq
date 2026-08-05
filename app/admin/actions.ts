@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { isAdminEmail } from "@/lib/admin-auth";
-import { slugify } from "@/lib/slug";
+import { uniqueSlug } from "@/lib/unique-slug";
 import { createClient } from "@/utils/supabase/server";
 
 /* ------------------------------------------------------------------ utils -- */
@@ -156,7 +156,7 @@ export async function deleteStat(form: FormData) {
 export async function createCluster(form: FormData) {
   const supabase = await createClient();
   const name = str(form, "name");
-  const slug = str(form, "slug") || slugify(name) || `cum-${Date.now()}`;
+  const slug = await uniqueSlug(supabase, "clusters", name, "ban");
 
   const { data } = await supabase
     .from("clusters")
@@ -183,7 +183,7 @@ export async function updateCluster(form: FormData) {
     .from("clusters")
     .update({
       name: str(form, "name"),
-      slug: str(form, "slug") || slugify(str(form, "name")),
+      // slug giữ nguyên sau khi tạo để không gãy đường dẫn neo #… đã chia sẻ
       nav_label: nullable(form, "nav_label"),
       color_from: str(form, "color_from"),
       color_to: str(form, "color_to"),

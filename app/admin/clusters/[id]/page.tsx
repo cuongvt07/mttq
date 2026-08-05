@@ -59,8 +59,10 @@ export default async function ClusterDetailPage({ params }: { params: Promise<{ 
           </div>
           <div className="grid gap-x-4 sm:grid-cols-2">
             <label className="adm-field">
-              <span>Slug (anchor)</span>
-              <input type="text" name="slug" defaultValue={cluster.slug} className="adm-input" />
+              <span>Đường dẫn neo (tự sinh)</span>
+              <span className="flex h-10 items-center rounded-lg bg-slate-100 px-3 font-mono text-sm text-slate-500">
+                #{cluster.slug}
+              </span>
             </label>
             <label className="adm-field">
               <span>Trạng thái</span>
