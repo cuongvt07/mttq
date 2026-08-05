@@ -76,3 +76,30 @@ export async function getBookOptions(): Promise<Pick<Book, "id" | "title" | "slu
     .order("updated_at", { ascending: false });
   return (data as Pick<Book, "id" | "title" | "slug">[] | null) ?? [];
 }
+
+/** Sách đã xuất bản, dùng cho khối "Bản tin" ngoài trang chủ. */
+export async function getPublishedBooks(): Promise<
+  (Pick<Book, "id" | "title" | "slug" | "cover_url" | "updated_at"> & { page_count: number })[]
+> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("books")
+    .select("id,title,slug,cover_url,updated_at, book_pages(id,sort_order,background_image)")
+    .eq("is_published", true)
+    .order("updated_at", { ascending: false });
+
+  type Row = Book & { book_pages: { id: string; sort_order: number; background_image: string | null }[] };
+
+  return ((data as Row[] | null) ?? []).map((b) => ({
+    id: b.id,
+    title: b.title,
+    slug: b.slug,
+    // chưa đặt bìa thì lấy nền trang đầu làm ảnh đại diện
+    cover_url:
+      b.cover_url ??
+      [...(b.book_pages ?? [])].sort((x, y) => x.sort_order - y.sort_order)[0]?.background_image ??
+      null,
+    updated_at: b.updated_at,
+    page_count: b.book_pages?.length ?? 0,
+  }));
+}

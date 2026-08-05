@@ -673,7 +673,7 @@ with b as (
     'Bản tin Mặt trận phường Yên Nghĩa — số 01',
     'ban-tin-mat-tran-so-01',
     '3:4',
-    ${q(GIAY_KHEN)},
+    ${q(BG_COVER)},
     ${q(JSON.stringify(chrome))}::jsonb
   )
   returning id

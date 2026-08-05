@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import BooksSection from "@/components/BooksSection";
 import ClusterSection from "@/components/ClusterSection";
 import FeaturedSection from "@/components/FeaturedSection";
 import Reveal from "@/components/Reveal";
 import TopNav from "@/components/TopNav";
+import { getPublishedBooks } from "@/lib/book-queries";
 import { getSiteData } from "@/lib/queries";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -11,10 +13,14 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function Home() {
-  const { settings, stats, clusters, media, usingFallback } = await getSiteData();
+  const [{ settings, stats, clusters, media, usingFallback }, books] = await Promise.all([
+    getSiteData(),
+    getPublishedBooks(),
+  ]);
 
   const navItems = [
     { href: "#top", label: "Trang chủ" },
+    ...(books.length ? [{ href: "#ban-tin", label: "Bản tin" }] : []),
     ...(media.length ? [{ href: "#featured", label: "Giới thiệu" }] : []),
     ...clusters.map((c, i) => ({ href: `#${c.slug}`, label: c.nav_label || `Cụm ${i + 1}` })),
   ];
@@ -36,14 +42,27 @@ export default async function Home() {
         items={navItems}
       />
 
+      {/* Banner: ảnh phủ kín, chữ và các ô số liệu nằm đè lên trên */}
       <section
         id="top"
-        className="relative overflow-hidden bg-linear-to-b from-sky-top via-[#5cb9ea] to-sky-bottom pt-7"
+        className="relative isolate flex min-h-[380px] flex-col justify-between overflow-hidden
+                   bg-linear-to-b from-sky-top via-[#5cb9ea] to-sky-bottom sm:min-h-[470px]"
       >
-        <div className="relative z-10 px-5 text-center text-navy">
+        <img
+          src={settings.hero_image_url || "/brand/hero-city.webp"}
+          alt=""
+          className="absolute inset-x-0 bottom-0 -z-10 w-full object-cover"
+        />
+        {/* phủ sáng phía trên cho chữ nổi rõ trên mọi ảnh nền */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 -z-10 bg-linear-to-b from-white/70 via-white/25 to-transparent"
+        />
+
+        <div className="mx-auto w-full max-w-[1440px] px-5 pt-8 text-center text-navy sm:pt-12">
           <h1
             data-reveal
-            className="mx-auto max-w-[34ch] text-lg font-black tracking-tight text-shadow-sm sm:text-2xl"
+            className="mx-auto max-w-[34ch] text-xl font-black tracking-tight text-shadow-sm sm:text-3xl"
           >
             {settings.hero_title}
           </h1>
@@ -51,24 +70,16 @@ export default async function Home() {
             <p
               data-reveal
               style={{ "--reveal-delay": "120ms" } as React.CSSProperties}
-              className="mt-3 inline-block rounded-full bg-[#0f66b6] px-4 py-1.5 text-[0.72rem] font-bold text-white shadow-md sm:text-sm"
+              className="mt-4 inline-block rounded-full bg-[#0f66b6] px-5 py-2 text-[0.78rem] font-bold text-white shadow-md sm:text-sm"
             >
               {settings.hero_subtitle}
             </p>
           ) : null}
         </div>
 
-        <img
-          src={settings.hero_image_url || "/brand/hero-city.webp"}
-          alt=""
-          data-reveal
-          style={{ "--reveal-delay": "200ms" } as React.CSSProperties}
-          className="mt-2 w-full object-cover"
-        />
-
         {stats.length ? (
-          <div className="mx-auto max-w-[1440px] px-5">
-            <div className="-mt-10 flex flex-wrap items-stretch justify-center gap-4 pb-6 sm:-mt-12">
+          <div className="mx-auto w-full max-w-[1440px] px-5 pt-10 pb-8">
+            <div className="flex flex-wrap items-stretch justify-center gap-4">
               {stats.map((s, i) => (
                 <div
                   key={s.id}
@@ -96,6 +107,8 @@ export default async function Home() {
           </div>
         ) : null}
       </section>
+
+      <BooksSection books={books} />
 
       <FeaturedSection settings={settings} media={media} />
 

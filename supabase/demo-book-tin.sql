@@ -14,7 +14,7 @@ with b as (
     'Bản tin Mặt trận phường Yên Nghĩa — số 01',
     'ban-tin-mat-tran-so-01',
     '3:4',
-    '/tin/giay-khen.webp',
+    '/tin/bg-bia.webp',
     '{"margin":48,"skipFirstPage":true,"skipLastPage":true,"header":{"enabled":true,"text":"BẢN TIN MẶT TRẬN · PHƯỜNG YÊN NGHĨA","align":"left","fontSize":18,"color":"#a20f1a","rule":true,"ruleColor":"#c8a227","ruleWidth":2,"pageNumber":false},"footer":{"enabled":true,"text":"Số 01 · Tháng 7/2026","align":"left","fontSize":18,"color":"#0b3f8f","rule":true,"ruleColor":"#c8a227","ruleWidth":2,"pageNumber":true,"pageNumberAlign":"right"}}'::jsonb
   )
   returning id
