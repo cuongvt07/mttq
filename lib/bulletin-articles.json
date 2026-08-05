@@ -196,6 +196,12 @@
         "caption": "",
         "w": 590,
         "h": 332
+      },
+      {
+        "path": "/tin/bao/gpmb-tuyen-truyen-5.webp",
+        "caption": "",
+        "w": 590,
+        "h": 332
       }
     ],
     "source": "Fanpage phường Yên Nghĩa"
@@ -239,6 +245,12 @@
         "caption": "",
         "w": 590,
         "h": 332
+      },
+      {
+        "path": "/tin/bao/gpmb-tham-hoi-5.webp",
+        "caption": "",
+        "w": 590,
+        "h": 332
       }
     ],
     "source": "Fanpage phường Yên Nghĩa"
@@ -273,7 +285,7 @@
         "path": "/tin/bao/phu-nu-3.webp",
         "caption": "",
         "w": 590,
-        "h": 443
+        "h": 332
       },
       {
         "path": "/tin/bao/phu-nu-4.webp",

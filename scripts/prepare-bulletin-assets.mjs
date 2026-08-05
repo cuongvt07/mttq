@@ -53,6 +53,64 @@ const dots = (color, opacity) => `
   </defs>
   <rect width="${W}" height="${H}" fill="url(#d)"/>`;
 
+/**
+ * Dây hoa sen chạy ngang mép dưới trang: thân mềm uốn lượn, vài bông sen và lá,
+ * để rất nhạt cho nhẹ nhàng, không át chữ.
+ */
+const senDay = (yBase, mau = "#c8a227", mo = 0.5) => {
+  /**
+   * Bông sen nhìn ngang: các cánh toả lên từ một điểm đài, cánh giữa dựng đứng,
+   * cánh ngoài ngả dần sang hai bên — không phải rosette tròn kiểu hoa cúc.
+   */
+  const bong = (cx, cy, r) => {
+    const canh = (goc, dai, rong) => {
+      const rad = (goc * Math.PI) / 180;
+      const ex = cx + Math.sin(rad) * dai;
+      const ey = cy - Math.cos(rad) * dai;
+      const nx = Math.cos(rad) * rong;
+      const ny = Math.sin(rad) * rong;
+      return `<path d="M${cx.toFixed(1)} ${cy.toFixed(1)}
+        C${(cx + nx).toFixed(1)} ${(cy + ny - dai * 0.5).toFixed(1)} ${(ex + nx * 0.7).toFixed(1)} ${(ey + ny * 0.7).toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}
+        C${(ex - nx * 0.7).toFixed(1)} ${(ey - ny * 0.7).toFixed(1)} ${(cx - nx).toFixed(1)} ${(cy - ny - dai * 0.5).toFixed(1)} ${cx.toFixed(1)} ${cy.toFixed(1)} z"
+        fill="none" stroke="${mau}" stroke-width="1.4"/>`;
+    };
+    return `
+    <g>
+      ${canh(-62, r * 0.82, r * 0.3)}${canh(62, r * 0.82, r * 0.3)}
+      ${canh(-36, r * 0.95, r * 0.28)}${canh(36, r * 0.95, r * 0.28)}
+      ${canh(-14, r, r * 0.26)}${canh(14, r, r * 0.26)}
+      ${canh(0, r * 0.72, r * 0.2)}
+    </g>`;
+  };
+
+  /** cuống nối đài sen xuống dây, hơi cong cho mềm */
+  const cuong = (x, yBong, yDay, lat = 1) => `
+    <path d="M${x} ${yBong} Q${x + 4 * lat} ${(yBong + yDay) / 2} ${x} ${yDay}"
+          fill="none" stroke="${mau}" stroke-width="1.3"/>`;
+
+  const la = (cx, cy, r, lat = 1) => `
+    <path d="M${cx} ${cy} q${r * lat} ${-r * 0.75} ${r * 1.7 * lat} ${-r * 0.1}
+             q${-r * 0.7 * lat} ${r * 0.85} ${-r * 1.7 * lat} ${r * 0.1} z"
+          fill="none" stroke="${mau}" stroke-width="1.5"/>`;
+
+  return `
+  <g opacity="${mo}">
+    <path d="M-10 ${yBase} C 120 ${yBase - 34}, 250 ${yBase + 26}, 400 ${yBase - 6}
+             S 660 ${yBase - 40}, ${W + 10} ${yBase - 4}"
+          fill="none" stroke="${mau}" stroke-width="1.8"/>
+    <path d="M-10 ${yBase + 14} C 150 ${yBase - 12}, 300 ${yBase + 40}, 470 ${yBase + 10}
+             S 690 ${yBase - 16}, ${W + 10} ${yBase + 16}"
+          fill="none" stroke="${mau}" stroke-width="1.1" opacity="0.7"/>
+    ${cuong(126, yBase - 34, yBase - 12, 1)}${bong(126, yBase - 34, 21)}
+    ${cuong(400, yBase - 46, yBase - 6, -1)}${bong(400, yBase - 46, 26)}
+    ${cuong(672, yBase - 32, yBase - 22, 1)}${bong(672, yBase - 32, 21)}
+    ${la(196, yBase - 2, 26, 1)}
+    ${la(604, yBase + 2, 26, -1)}
+    ${la(330, yBase + 10, 20, -1)}
+    ${la(486, yBase + 6, 20, 1)}
+  </g>`;
+};
+
 /** cánh sen cách điệu — hoạ tiết chìm giữa trang bìa */
 const lotus = (cx, cy, r, color, opacity) => `
   <g opacity="${opacity}" fill="none" stroke="${color}" stroke-width="2">
@@ -97,6 +155,7 @@ const nenTrang = await sharp(
     <rect x="0" y="${H - 12}" width="${W}" height="12" fill="#0b3f8f"/>
     <rect x="30" y="34" width="${W - 60}" height="${H - 62}" fill="none" stroke="#e6d9a8" stroke-width="1.5"/>
     <rect x="30" y="34" width="6" height="${H - 62}" fill="#f0c14b" opacity="0.35"/>
+    ${senDay(H - 62, "#c8a227", 0.4)}
   `),
 ).toBuffer();
 
@@ -132,6 +191,7 @@ await sharp(
     <rect width="${W}" height="${H}" fill="url(#g2)"/>
     ${dots("#ffffff", 0.05)}
     ${lotus(W / 2, H / 2, 230, "#f0c14b", 0.14)}
+    ${senDay(H - 96, "#f0c14b", 0.5)}
     <rect x="26" y="26" width="${W - 52}" height="${H - 52}" fill="none" stroke="#f0c14b" stroke-width="2"/>
   `),
 )

@@ -53,11 +53,23 @@ let browser = null;
 async function taiAnh(url, file, referer) {
   const res = await fetch(url, { headers: { "User-Agent": UA, Referer: referer } });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const meta = await sharp(Buffer.from(await res.arrayBuffer()))
+  const goc = Buffer.from(await res.arrayBuffer());
+  const meta = await sharp(goc)
     .resize({ width: 1400, withoutEnlargement: true })
     .webp({ quality: 82 })
     .toFile(join(IMG_DIR, file));
-  return meta;
+  return { ...meta, chuKy: await chuKy(goc) };
+}
+
+/** Vân tay ảnh 8×8 xám — đủ để nhận ra hai bản cùng một tấm ở kích thước khác nhau. */
+const chuKy = (buf) =>
+  sharp(buf).resize(8, 8, { fit: "fill" }).greyscale().raw().toBuffer();
+
+/** Hai ảnh coi là một nếu vân tay lệch trung bình dưới 6/255. */
+function trungAnh(a, b) {
+  let tong = 0;
+  for (let i = 0; i < a.length; i++) tong += Math.abs(a[i] - b[i]);
+  return tong / a.length < 6;
 }
 
 /**
@@ -84,12 +96,24 @@ async function layBaiFacebook(src) {
       .catch(() => {});
     await new Promise((r) => setTimeout(r, 1200));
 
+    // album ảnh chỉ nạp khi cuộn tới — cuộn vài nhịp cho đủ ảnh
+    for (let i = 0; i < 4; i++) {
+      await p.evaluate(() => window.scrollBy(0, window.innerHeight)).catch(() => {});
+      await new Promise((r) => setTimeout(r, 900));
+    }
+
     const data = await p.evaluate(() => {
       const meta = (prop) => document.querySelector(`meta[property="${prop}"]`)?.content ?? "";
-      const anh = [...document.querySelectorAll("img")]
-        .filter((i) => /scontent|fbcdn/.test(i.src) && !/emoji\.php|static\.xx/.test(i.src))
-        .filter((i) => i.naturalWidth >= 400)
-        .map((i) => i.src);
+      // cùng một tấm ảnh có nhiều bản kích thước khác nhau — giữ bản to nhất
+      const theoAnh = new Map();
+      for (const i of document.querySelectorAll("img")) {
+        if (!/scontent|fbcdn/.test(i.src) || /emoji\.php|static\.xx/.test(i.src)) continue;
+        if (i.naturalWidth < 400) continue;
+        const ma = (i.src.match(/\/([\w-]+_n\.\w+)/) ?? [, i.src.split("?")[0]])[1];
+        const cu = theoAnh.get(ma);
+        if (!cu || i.naturalWidth > cu.w) theoAnh.set(ma, { src: i.src, w: i.naturalWidth });
+      }
+      const anh = [...theoAnh.values()].sort((a, b) => b.w - a.w).map((x) => x.src);
 
       // nguyên văn bài viết nằm trong khối message của Facebook
       const khoi =
@@ -118,10 +142,14 @@ async function layBaiFacebook(src) {
     const paragraphs = dong.slice(1).filter((t) => t.length > 40 && !/^Xem thêm$/i.test(t));
 
     const images = [];
-    for (const [i, url] of data.images.slice(0, 4).entries()) {
+    const vanTay = [];
+    for (const url of data.images.slice(0, 12)) {
+      if (images.length >= 6) break;
       try {
-        const file = `${src.key}-${i + 1}.webp`;
+        const file = `${src.key}-${images.length + 1}.webp`;
         const meta = await taiAnh(url, file, src.url);
+        if (vanTay.some((v) => trungAnh(v, meta.chuKy))) continue; // trùng tấm đã lấy
+        vanTay.push(meta.chuKy);
         images.push({ path: `/tin/bao/${file}`, caption: "", w: meta.width, h: meta.height });
       } catch {
         /* ảnh lỗi thì bỏ qua */

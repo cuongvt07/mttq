@@ -92,19 +92,28 @@ const image = (src, h, o = {}) => ({
 const atom = (...blocks) => ({ type: 'atom', blocks });
 
 /** Hàng hai cột kiểu báo: ảnh một bên, chữ chạy bên cạnh. */
-const row = (left, right) => ({ type: 'row', cols: [left, right] });
+const row = (left, right, xs) => ({ type: 'row', cols: [left, right], xs });
 
 /** Nhiều mục dính liền: mở bài (tiêu đề + ảnh + sapo) không được tách trang. */
 const group = (...items) => ({ type: 'group', items });
 
 /* -------------------------------------------------------------- dữ liệu -- */
 
-/** Tiêu đề các tin chỉ đăng trên fanpage (lấy nguyên từ file Word). */
+/**
+ * Tiêu đề các tin chỉ đăng trên fanpage. Bài gốc viết hoa toàn bộ nên đặt lại
+ * theo đúng nội dung bài, viết hoa danh từ riêng cho đúng chính tả.
+ */
 const TIEU_DE_FB = {
-  'gpmb-tuyen-truyen': 'Tuyên truyền công tác giải phóng mặt bằng',
-  'gpmb-tham-hoi': 'MTTQ thăm hỏi, tặng quà tổ công tác tham gia tuyên truyền giải phóng mặt bằng',
-  'phu-nu': 'Hội Liên hiệp Phụ nữ phường viếng nghĩa trang liệt sĩ',
+  "gpmb-tuyen-truyen":
+    "Phường Yên Nghĩa đẩy nhanh tiến độ giải phóng mặt bằng dự án cải tạo, mở rộng Quốc lộ 6",
+  "gpmb-tham-hoi":
+    "Uỷ ban MTTQ Việt Nam phường Yên Nghĩa thăm hỏi, động viên lực lượng tuyên truyền giải phóng mặt bằng Quốc lộ 6",
+  "phu-nu":
+    "Hội Liên hiệp Phụ nữ phường ra quân tổng vệ sinh môi trường tại Nghĩa trang Liệt sĩ",
 };
+
+/** Tiêu đề dùng trong bản tin — cùng một nguồn cho cả bài lẫn mục lục. */
+const tieuDe = (a) => TIEU_DE_FB[a.key] ?? a.title;
 
 const articles = JSON.parse(await readFile(join(ROOT, "lib", "bulletin-articles.json"), "utf8"));
 const ok = articles.filter((a) => a.ok);
@@ -128,7 +137,7 @@ async function articleAtoms(a) {
 
   const header = atom(
     text(a.muc.toUpperCase(), { size: 19, font: SANS, bold: true, color: GOLD, gap: 6 }),
-    text(a.title, { size: 33, bold: true, color: RED, lh: 1.24, gap: 8 }),
+    text(tieuDe(a), { size: 33, bold: true, color: RED, lh: 1.24, gap: 8 }),
     text([a.author, a.date, `Nguồn: ${a.source}`].filter(Boolean).join(" · "), {
       size: 18, font: SANS, color: MUTED, italic: true, lh: 1.4, gap: 14,
     }),
@@ -137,14 +146,31 @@ async function articleAtoms(a) {
   const paras = [...a.paragraphs];
   const imgs = [...a.images];
 
-  // Mở bài: tiêu đề + ảnh lớn ngang + sapo đi liền nhau, không để trống trang
+  // Mở bài: tiêu đề + ảnh lớn ngang + sapo nằm trọn trang đầu của bài.
+  // Ảnh mở bài được căn cao vừa đúng phần trang còn lại, không để hở cuối trang.
+  const moDau = a.sapo
+    ? atom(text(a.sapo, { size: 24, bold: true, color: NAVY, lh: 1.55, gap: 16 }))
+    : paras.length
+      ? atom(text(paras.shift(), { gap: 14 }))
+      : null;
+
   const mo = [header];
-  if (imgs.length) mo.push(atom(...anhCum(imgs.shift(), 320, CW, a.source)));
-  if (a.sapo) {
-    mo.push(atom(text(a.sapo, { size: 24, bold: true, color: NAVY, lh: 1.55, gap: 16 })));
-  } else if (paras.length) {
-    mo.push(atom(text(paras.shift(), { gap: 14 })));
+  if (imgs.length) {
+    const anh = anhCum(imgs.shift(), 320, CW, a.source);
+    const cao = async (kh) => {
+      let s = 0;
+      for (const b of kh.blocks) s += (await heightOf(b)) + b.gap;
+      return s;
+    };
+    const conLai =
+      BOTTOM - TOP - (await cao(header)) - (moDau ? await cao(moDau) : 0) -
+      ((await heightOf(anh[1])) + anh[1].gap) - anh[0].gap;
+
+    anh[0].h = Math.min(520, Math.max(300, Math.round(conLai)));
+    H.set(anh[0], anh[0].h);
+    mo.push(atom(...anh));
   }
+  if (moDau) mo.push(moDau);
   out.push(group(...mo));
 
   // Thân bài: ảnh nửa trang LUÔN có chữ chạy bên cạnh (trái → phải → ngang lớn)
@@ -169,8 +195,12 @@ async function articleAtoms(a) {
     kieu++;
   }
 
-  // Ảnh còn thừa khi đã hết chữ: để ngang cả trang, không ghép đôi
-  for (const img of imgs) out.push(atom(...anhCum(img, 300, CW, a.source)));
+  // Ảnh còn thừa khi đã hết chữ: để ngang cả trang, không ghép đôi.
+  // Cho co giãn chiều cao để lấp kín chỗ trống cuối bài, khỏi hở một mảng trắng.
+  for (const img of imgs) {
+    const blocks = anhCum(img, 300, CW, a.source);
+    out.push({ ...atom(...blocks), co: { anh: blocks[0], min: 210, max: 620 } });
+  }
 
   return out;
 }
@@ -343,7 +373,7 @@ async function paginate(items, { continuedLabel } = {}) {
       return;
     }
     if (it.type === "row") {
-      const xs = [COL_L, COL_R];
+      const xs = it.xs ?? [COL_L, COL_R];
       let max = 0;
       for (const [i, col] of it.cols.entries()) {
         let cy = y;
@@ -362,8 +392,25 @@ async function paginate(items, { continuedLabel } = {}) {
     }
   }
 
+  /**
+   * Ảnh co giãn: nén/kéo chiều cao ảnh cho vừa chỗ trống còn lại của trang,
+   * để cuối bài không hở một mảng trắng lớn. Trả về chiều cao mục sau khi chỉnh.
+   */
+  async function coAnh(it, h) {
+    const anh = it.co.anh;
+    const phuTro = h - anh.h; // chú thích + các khoảng cách, không co theo
+    const cao = Math.min(it.co.max, BOTTOM - y - phuTro);
+
+    anh.h = Math.max(it.co.min, Math.round(cao));
+    H.set(anh, anh.h);
+    return anh.h + phuTro;
+  }
+
   for (const it of items) {
-    const h = await heightOfItem(it);
+    let h = await heightOfItem(it);
+    // căn theo chỗ trống của trang hiện tại; nếu vẫn không vừa thì sang trang
+    // mới rồi căn lại theo cả trang
+    if (it.co) h = await coAnh(it, h);
 
     if (cur.length && y + h > BOTTOM) {
       pages.push(cur);
@@ -376,6 +423,7 @@ async function paginate(items, { continuedLabel } = {}) {
         cur.push({ b: label, x: M, y });
         y += (await heightOf(label)) + label.gap;
       }
+      if (it.co) h = await coAnh(it, h); // căn lại theo trang mới
     }
 
     await place(it);
@@ -489,14 +537,35 @@ bodyPages.forEach((p, i) => {
   if (!firstPageOf.has(p.article)) firstPageOf.set(p.article, i + 3);
 });
 
-const MUC_LUC_TEN = {
-  "sau-thang": "Triển khai nhiều nhiệm vụ trọng tâm, hướng về cơ sở, chăm lo nhân dân",
-  "tri-an": "MTTQ phường lan toả nghĩa tình, tri ân người có công",
-  ccb: "Hội Cựu chiến binh dâng hương tưởng niệm các anh hùng liệt sĩ",
+/**
+ * Tên từng mục trong mục lục: nói rõ tin gì, đủ ngắn để mỗi tin gọn một dòng
+ * nên các dòng thẳng hàng đều nhau.
+ */
+const TEN_MUC_LUC = {
+  "sau-thang": "Triển khai nhiệm vụ trọng tâm, chăm lo nhân dân",
+  "tri-an": "MTTQ phường lan toả nghĩa tình tri ân người có công",
+  ccb: "Cựu chiến binh dâng hương tưởng niệm các Anh hùng liệt sĩ",
   "cong-doan": "Đối thoại, lắng nghe tâm tư của người lao động",
-  fanpage: "Hoạt động đăng tải trên fanpage phường",
+  "gpmb-tuyen-truyen": "Đẩy nhanh giải phóng mặt bằng mở rộng Quốc lộ 6",
+  "gpmb-tham-hoi": "Thăm hỏi lực lượng tuyên truyền giải phóng mặt bằng",
+  "phu-nu": "Phụ nữ phường tổng vệ sinh Nghĩa trang Liệt sĩ",
   "khen-thuong": "Giấy khen của Ban Chấp hành Đảng bộ phường",
 };
+
+function tenMucLuc(key) {
+  if (TEN_MUC_LUC[key]) return TEN_MUC_LUC[key];
+
+  // sách nhân bản cho tháng sau có thể thêm bài mới — lấy tạm tiêu đề bài
+  const bai = ok.find((a) => a.key === key);
+  if (!bai) return key;
+  const t = tieuDe(bai).replace(/\s+/g, " ").trim();
+  if (t.length <= 62) return t;
+  const cat = t.lastIndexOf(" ", 62);
+  return t.slice(0, cat > 40 ? cat : 62).trim() + "…";
+}
+
+/** Cột số trang rộng cố định để các dòng mục lục thẳng hàng nhau. */
+const COT_SO = 58;
 
 const tocAtoms = [
   atom(
@@ -511,19 +580,19 @@ const tocAtoms = [
     }),
   ),
   ...[...firstPageOf.entries()].map(([key, num]) =>
-    atom(
-      text(`${String(num).padStart(2, "0")}    ${MUC_LUC_TEN[key] ?? key}`, {
-        size: 24,
-        bold: true,
-        color: NAVY,
-        lh: 1.4,
-        gap: 16,
-      }),
+    row(
+      [
+        text(String(num).padStart(2, "0"), {
+          size: 24, bold: true, color: GOLD, lh: 1.4, w: COT_SO - 14, align: "right", gap: 18,
+        }),
+      ],
+      [text(tenMucLuc(key), { size: 24, bold: true, color: NAVY, lh: 1.4, w: CW - COT_SO, gap: 18 })],
+      [M, M + COT_SO],
     ),
   ),
   atom(
     text(
-      "Nội dung và hình ảnh trong số này được tổng hợp từ các bài viết đã đăng trên Báo Hànộimới về hoạt động của Uỷ ban MTTQ Việt Nam phường Yên Nghĩa.",
+      "Nội dung và hình ảnh trong số này được tổng hợp từ các bài đã đăng trên Báo Hànộimới và fanpage của phường về hoạt động của Uỷ ban MTTQ Việt Nam phường Yên Nghĩa.",
       { size: 20, font: SANS, color: INK, italic: true, lh: 1.55, gap: 0 },
     ),
   ),
