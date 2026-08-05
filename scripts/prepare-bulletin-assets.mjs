@@ -16,7 +16,7 @@ const OUT = join(ROOT, "public", "tin");
 await mkdir(OUT, { recursive: true });
 
 const W = 800;
-const H = 1067;
+const H = 1131;   // khổ A4 quy về bề rộng 800
 
 /* --------------------------------------------------------------- ảnh chụp -- */
 
@@ -57,7 +57,7 @@ const dots = (color, opacity) => `
  * Dây hoa sen chạy ngang mép dưới trang: thân mềm uốn lượn, vài bông sen và lá,
  * để rất nhạt cho nhẹ nhàng, không át chữ.
  */
-const senDay = (yBase, mau = "#c8a227", mo = 0.5) => {
+const senDay = (yBase, mau = "#e8a3b6", mo = 0.5) => {
   /**
    * Bông sen nhìn ngang: các cánh toả lên từ một điểm đài, cánh giữa dựng đứng,
    * cánh ngoài ngả dần sang hai bên — không phải rosette tròn kiểu hoa cúc.
@@ -83,16 +83,6 @@ const senDay = (yBase, mau = "#c8a227", mo = 0.5) => {
     </g>`;
   };
 
-  /** cuống nối đài sen xuống dây, hơi cong cho mềm */
-  const cuong = (x, yBong, yDay, lat = 1) => `
-    <path d="M${x} ${yBong} Q${x + 4 * lat} ${(yBong + yDay) / 2} ${x} ${yDay}"
-          fill="none" stroke="${mau}" stroke-width="1.3"/>`;
-
-  const la = (cx, cy, r, lat = 1) => `
-    <path d="M${cx} ${cy} q${r * lat} ${-r * 0.75} ${r * 1.7 * lat} ${-r * 0.1}
-             q${-r * 0.7 * lat} ${r * 0.85} ${-r * 1.7 * lat} ${r * 0.1} z"
-          fill="none" stroke="${mau}" stroke-width="1.5"/>`;
-
   return `
   <g opacity="${mo}">
     <path d="M-10 ${yBase} C 120 ${yBase - 34}, 250 ${yBase + 26}, 400 ${yBase - 6}
@@ -101,13 +91,9 @@ const senDay = (yBase, mau = "#c8a227", mo = 0.5) => {
     <path d="M-10 ${yBase + 14} C 150 ${yBase - 12}, 300 ${yBase + 40}, 470 ${yBase + 10}
              S 690 ${yBase - 16}, ${W + 10} ${yBase + 16}"
           fill="none" stroke="${mau}" stroke-width="1.1" opacity="0.7"/>
-    ${cuong(126, yBase - 34, yBase - 12, 1)}${bong(126, yBase - 34, 21)}
-    ${cuong(400, yBase - 46, yBase - 6, -1)}${bong(400, yBase - 46, 26)}
-    ${cuong(672, yBase - 32, yBase - 22, 1)}${bong(672, yBase - 32, 21)}
-    ${la(196, yBase - 2, 26, 1)}
-    ${la(604, yBase + 2, 26, -1)}
-    ${la(330, yBase + 10, 20, -1)}
-    ${la(486, yBase + 6, 20, 1)}
+    ${bong(126, yBase - 9, 22)}
+    ${bong(400, yBase - 6, 27)}
+    ${bong(672, yBase - 27, 22)}
   </g>`;
 };
 
@@ -155,7 +141,7 @@ const nenTrang = await sharp(
     <rect x="0" y="${H - 12}" width="${W}" height="12" fill="#0b3f8f"/>
     <rect x="30" y="34" width="${W - 60}" height="${H - 62}" fill="none" stroke="#e6d9a8" stroke-width="1.5"/>
     <rect x="30" y="34" width="6" height="${H - 62}" fill="#f0c14b" opacity="0.35"/>
-    ${senDay(H - 62, "#c8a227", 0.4)}
+    ${senDay(H - 62, "#e8a3b6", 0.62)}
   `),
 ).toBuffer();
 
@@ -191,7 +177,7 @@ await sharp(
     <rect width="${W}" height="${H}" fill="url(#g2)"/>
     ${dots("#ffffff", 0.05)}
     ${lotus(W / 2, H / 2, 230, "#f0c14b", 0.14)}
-    ${senDay(H - 96, "#f0c14b", 0.5)}
+    ${senDay(H - 96, "#f2b9c8", 0.5)}
     <rect x="26" y="26" width="${W - 52}" height="${H - 52}" fill="none" stroke="#f0c14b" stroke-width="2"/>
   `),
 )

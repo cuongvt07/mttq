@@ -14,7 +14,7 @@ const OUT = join(ROOT, "public", "tin", "mau");
 await mkdir(OUT, { recursive: true });
 
 const W = 800;
-const H = 1067;
+const H = 1131;   // khổ A4 quy về bề rộng 800
 
 const svg = (body) =>
   Buffer.from(

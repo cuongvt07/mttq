@@ -24,9 +24,10 @@ const CHROME = "C:/Program Files/Google/Chrome/Application/chrome.exe";
 const BOOK_ID = "69045c01-c567-4097-b580-af7392760aff";
 
 const W = 800;
+const PH = 1131;                  // khổ A4 (210×297mm) quy về bề rộng 800
 const M = 60;
 const TOP = 96;
-const BOTTOM = 972;
+const BOTTOM = PH - 95;
 const CW = W - M * 2;
 const GUT = 24;                    // rãnh giữa hai cột
 const HALF = (CW - GUT) / 2;       // bề rộng một cột
@@ -298,6 +299,20 @@ const WRAP_GAP = 20;
  * Mục "chữ chảy quanh ảnh": ảnh nửa trang một bên, chữ chạy bên cạnh,
  * hết ảnh thì chữ tràn ra full chiều ngang.
  */
+/** Khoảng cách giữa hai đoạn nằm trong cùng một khối chữ. */
+const HO_DOAN = 16;
+
+/**
+ * Tách chuỗi nhiều đoạn thành từng khối chữ riêng, cách nhau HO_DOAN.
+ * Trước đây để nguyên "\n\n" nên giữa hai đoạn hở hẳn một dòng trống.
+ */
+const doanKhoi = (noiDung, o = {}) => {
+  const doan = noiDung.split(/\n{2,}/).map((t) => t.trim()).filter(Boolean);
+  return doan.map((t, i) =>
+    text(t, { ...o, gap: i === doan.length - 1 ? (o.gapCuoi ?? 0) : HO_DOAN }),
+  );
+};
+
 async function wrapItem(img, side, content, imgH = 250, nguon) {
   const cot = anhCum(img, imgH, HALF, nguon);
   let colH = 0;
@@ -311,8 +326,8 @@ async function wrapItem(img, side, content, imgH = 250, nguon) {
     side,
     cot,
     colH,
-    ben: ben ? text(ben, { w: HALF, gap: 0 }) : null,
-    duoi: duoi ? text(duoi, { gap: 14 }) : null,
+    ben: ben ? doanKhoi(ben, { w: HALF, gapCuoi: 0 }) : null,
+    duoi: duoi ? doanKhoi(duoi, { gapCuoi: 14 }) : null,
   };
 }
 
@@ -327,7 +342,9 @@ async function paginate(items, { continuedLabel } = {}) {
   /** chiều cao của một mục: atom xếp dọc, row lấy cột cao nhất */
   async function heightOfItem(it) {
     if (it.type === "wrap") {
-      return it.colH + (it.duoi ? WRAP_GAP + (await heightOf(it.duoi)) + it.duoi.gap : 14);
+      let hDuoi = 0;
+      for (const b of it.duoi ?? []) hDuoi += (await heightOf(b)) + b.gap;
+      return it.colH + (it.duoi ? WRAP_GAP + hDuoi : 14);
     }
     if (it.type === "group") {
       let h = 0;
@@ -359,12 +376,16 @@ async function paginate(items, { continuedLabel } = {}) {
         cur.push({ b, x: xImg, y: cy });
         cy += (await heightOf(b)) + b.gap;
       }
-      if (it.ben) cur.push({ b: it.ben, x: xTxt, y });
+      let ty = y;
+      for (const b of it.ben ?? []) {
+        cur.push({ b, x: xTxt, y: ty });
+        ty += (await heightOf(b)) + b.gap;
+      }
 
       y += it.colH + WRAP_GAP;
-      if (it.duoi) {
-        cur.push({ b: it.duoi, x: M, y });
-        y += (await heightOf(it.duoi)) + it.duoi.gap;
+      for (const b of it.duoi ?? []) {
+        cur.push({ b, x: M, y });
+        y += (await heightOf(b)) + b.gap;
       }
       return;
     }
@@ -615,30 +636,30 @@ const cover = [
   text("SỐ 01  ·  THÁNG 7/2026", {
     size: 26, font: SANS, color: CREAM, bold: true, align: "center", x: M, y: 356, w: CW, lh: 1.3,
   }),
-  image(GIAY_KHEN, 232, { w: 330, x: M, y: 424, border: 4, borderColor: CREAM }),
-  image(TRAO_QD_1, 232, { w: 330, x: W - M - 330, y: 424, border: 4, borderColor: CREAM }),
+  image(GIAY_KHEN, 232, { w: 330, x: M, y: 452, border: 4, borderColor: CREAM }),
+  image(TRAO_QD_1, 232, { w: 330, x: W - M - 330, y: 452, border: 4, borderColor: CREAM }),
   text("Giấy khen của Ban Chấp hành Đảng bộ phường", {
-    size: 17, font: SANS, color: CREAM, italic: true, align: "center", x: M, y: 664, w: 330, lh: 1.3,
+    size: 17, font: SANS, color: CREAM, italic: true, align: "center", x: M, y: 692, w: 330, lh: 1.3,
   }),
   text("Hội nghị công bố quyết định thành lập", {
-    size: 17, font: SANS, color: CREAM, italic: true, align: "center", x: W - M - 330, y: 664, w: 330, lh: 1.3,
+    size: 17, font: SANS, color: CREAM, italic: true, align: "center", x: W - M - 330, y: 692, w: 330, lh: 1.3,
   }),
-  image(TRAO_QD_2, 220, { w: CW, x: M, y: 726, border: 4, borderColor: CREAM }),
+  image(TRAO_QD_2, 240, { w: CW, x: M, y: 754, border: 4, borderColor: CREAM }),
   text("15 BAN CÔNG TÁC MẶT TRẬN  ·  15 TỔ DÂN PHỐ", {
-    size: 21, font: SANS, color: CREAM, bold: true, align: "center", x: M, y: 986, w: CW, lh: 1.3,
+    size: 21, font: SANS, color: CREAM, bold: true, align: "center", x: M, y: 1032, w: CW, lh: 1.3,
   }),
 ];
 
 const back = [
-  image(EMBLEM, 110, { w: 110, x: (W - 110) / 2, y: 330, radius: 0, fit: "contain" }),
+  image(EMBLEM, 110, { w: 110, x: (W - 110) / 2, y: 360, radius: 0, fit: "contain" }),
   text("UỶ BAN MẶT TRẬN TỔ QUỐC VIỆT NAM\nPHƯỜNG YÊN NGHĨA", {
-    size: 33, bold: true, color: WHITE, align: "center", x: M, y: 470, w: CW, lh: 1.35,
+    size: 33, bold: true, color: WHITE, align: "center", x: M, y: 500, w: CW, lh: 1.35,
   }),
   text("BẢN TIN MẶT TRẬN  ·  SỐ 01  ·  THÁNG 7/2026", {
-    size: 24, font: SANS, bold: true, color: CREAM, align: "center", x: M, y: 606, w: CW, lh: 1.4,
+    size: 24, font: SANS, bold: true, color: CREAM, align: "center", x: M, y: 640, w: CW, lh: 1.4,
   }),
   text("15 Ban Công tác Mặt trận tại 15 Tổ dân phố trực thuộc", {
-    size: 22, font: SANS, color: "#cfe0ff", align: "center", x: M, y: 656, w: CW, lh: 1.5,
+    size: 22, font: SANS, color: "#cfe0ff", align: "center", x: M, y: 692, w: CW, lh: 1.5,
   }),
 ];
 
@@ -741,7 +762,7 @@ with b as (
     '${BOOK_ID}',
     'Bản tin Mặt trận phường Yên Nghĩa — số 01',
     'ban-tin-mat-tran-so-01',
-    '3:4',
+    'a4',
     ${q(BG_COVER)},
     ${q(JSON.stringify(chrome))}::jsonb
   )
