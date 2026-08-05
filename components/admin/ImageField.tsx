@@ -13,11 +13,14 @@ export default function ImageField({
   defaultValue,
   label = "Ảnh",
   aspect = "4 / 3",
+  previewMax,
 }: {
   name: string;
   defaultValue?: string | null;
   label?: string;
   aspect?: string;
+  /** giới hạn bề rộng khung xem trước, vd "140px" */
+  previewMax?: string;
 }) {
   const [value, setValue] = useState(defaultValue ?? "");
   const [busy, setBusy] = useState(false);
@@ -54,7 +57,11 @@ export default function ImageField({
 
       <div
         className="mb-2 grid place-items-center rounded-lg border border-dashed border-slate-300 bg-slate-50 bg-cover bg-center text-xs text-slate-400"
-        style={{ aspectRatio: aspect, backgroundImage: value ? `url('${value}')` : undefined }}
+        style={{
+          aspectRatio: aspect,
+          maxWidth: previewMax,
+          backgroundImage: value ? `url('${value}')` : undefined,
+        }}
       >
         {value ? null : "Chưa có ảnh"}
       </div>

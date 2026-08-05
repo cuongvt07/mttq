@@ -8,12 +8,10 @@ import { signOut } from "./actions";
 export const metadata = { title: "Quản trị nội dung" };
 
 const NAV = [
-  { href: "/admin", label: "Trang chính" },
-  { href: "/admin/books", label: "Sách lật" },
+  { href: "/admin", label: "Tổng quan" },
+  { href: "/admin/settings", label: "Trang chủ" },
   { href: "/admin/clusters", label: "Các ban" },
-  { href: "/admin/media", label: "Ảnh nổi bật" },
-  { href: "/admin/stats", label: "Số liệu" },
-  { href: "/admin/settings", label: "Cấu hình" },
+  { href: "/admin/books", label: "Sách lật" },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

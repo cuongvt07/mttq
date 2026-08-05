@@ -34,32 +34,18 @@ export default async function AdminHome() {
       chinh: true,
     },
     {
+      ten: "Trang chủ",
+      mo: "Tên đơn vị, banner, số liệu và ảnh nổi bật — có khung xem trước",
+      soLieu: [stats.length + " ô số liệu", media.length + " ảnh"].join(" · "),
+      icon: "🏠",
+      href: "/admin/settings",
+    },
+    {
       ten: "Các Ban Công tác Mặt trận",
       mo: "Tên ban, màu khối, ảnh và tên từng hoạt động",
-      soLieu: `${clusters.length} ban · ${tongDonVi} hoạt động`,
+      soLieu: [clusters.length + " ban", tongDonVi + " hoạt động"].join(" · "),
       icon: "🏘️",
       href: "/admin/clusters",
-    },
-    {
-      ten: "Ảnh nổi bật trang chủ",
-      mo: "Khối ảnh ngay dưới banner",
-      soLieu: `${media.length} ảnh`,
-      icon: "🖼️",
-      href: "/admin/media",
-    },
-    {
-      ten: "Số liệu trên banner",
-      mo: "Các ô số ở đầu trang chủ",
-      soLieu: `${stats.length} ô`,
-      icon: "🔢",
-      href: "/admin/stats",
-    },
-    {
-      ten: "Cấu hình chung",
-      mo: "Tên đơn vị, tiêu đề, banner, chân trang",
-      soLieu: "Thông tin site",
-      icon: "⚙️",
-      href: "/admin/settings",
     },
   ];
 
