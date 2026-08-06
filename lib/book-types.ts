@@ -51,7 +51,24 @@ export type ImageElement = {
   borderColor: string;
 };
 
-export type BookElement = TextElement | ImageElement;
+/** Khung/đường kẻ — dùng để kẻ bảng, vạch ngăn, nền khối. */
+export type ShapeElement = {
+  id: string;
+  type: "shape";
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  rotation: number;
+  /** màu nền, để trống là trong suốt */
+  fill?: string;
+  borderWidth: number;
+  borderColor: string;
+  radius: number;
+  opacity: number;
+};
+
+export type BookElement = TextElement | ImageElement | ShapeElement;
 
 export type BookPage = {
   id: string;

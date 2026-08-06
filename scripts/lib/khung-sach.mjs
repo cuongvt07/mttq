@@ -63,6 +63,8 @@ export const text = (content, o = {}) => ({
   w: o.w ?? CW,
   x: o.x,
   y: o.y,
+  /** ghi chú tuỳ ý của script gọi (ví dụ: ô này thuộc bảng nào) */
+  o: o.o,
 });
 
 export const image = (src, h, o = {}) => ({

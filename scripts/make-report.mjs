@@ -14,7 +14,7 @@ import { inflateRawSync } from "node:zlib";
 import {
   ROOT, W, PH, M, TOP, BOTTOM, CW, GUT, HALF,
   SERIF, SANS, RED, NAVY, GOLD, INK, MUTED,
-  text, image, atom, group,
+  text, image, atom, group, uid,
   anhCum, khungCo,
   moTrinhDuyet, dongTrinhDuyet, H, heightOf,
   paginate, toElement,
@@ -269,8 +269,11 @@ items.push(
  * Một bảng của báo cáo → các hàng để xếp trang. Hàng đầu là tiêu đề cột (đậm,
  * màu đỏ); mỗi ô là một cột chữ riêng nên chữ dài tự xuống dòng trong ô.
  */
+let soBang = 0;
+
 function veBang({ rong, xs, hang }) {
-  const dungHang = (o, dauBang) => ({
+  const maBang = `bang${++soBang}`;
+  const dungHang = (o, dauBang, thuTu) => ({
     type: "row",
     cols: rong.map((w, c) => [
       text(o[c] ?? "", {
@@ -282,14 +285,19 @@ function veBang({ rong, xs, hang }) {
         w,
         lh: 1.42,
         gap: dauBang ? 12 : 16,
+        // đánh dấu để sau khi xếp trang biết chỗ mà kẻ khung
+        o: { bang: maBang, hang: thuTu, cot: c, wCot: w },
       }),
     ]),
     xs,
   });
 
-  const tieuDe = dungHang(hang[0] ?? [], true);
+  const tieuDe = dungHang(hang[0] ?? [], true, 0);
   // các hàng dữ liệu mang theo dòng tiêu đề, để bảng vắt trang thì nhắc lại
-  return [tieuDe, ...hang.slice(1).map((o) => ({ ...dungHang(o, false), tieuDeBang: tieuDe }))];
+  return [
+    tieuDe,
+    ...hang.slice(1).map((o, i) => ({ ...dungHang(o, false, i + 1), tieuDeBang: tieuDe })),
+  ];
 }
 
 // Thân báo cáo: đoạn văn và bảng xen kẽ đúng thứ tự trong file Word.
@@ -339,26 +347,6 @@ items.push(
 const COT = [40, 122, 258, 138, 92]; // STT · tên · nội dung · đơn vị · hình thức
 const XCOT = COT.reduce((a, w, i) => [...a, i ? a[i - 1] + COT[i - 1] + 8 : M], []);
 
-/** một hàng của biểu: mỗi ô là một cột chữ riêng */
-const hangBieu = (o, dam = false) => ({
-  type: "row",
-  cols: o.map((noiDung, i) =>
-    [
-      text(noiDung, {
-        size: dam ? 18 : 19,
-        font: SANS,
-        bold: dam,
-        color: dam ? RED : INK,
-        align: i === 0 ? "center" : "left",
-        w: COT[i],
-        lh: 1.4,
-        gap: dam ? 14 : 16,
-      }),
-    ],
-  ),
-  xs: XCOT,
-});
-
 items.push(
   group(
     atom(text("PHỤ LỤC KÈM THEO", { size: 19, font: SANS, bold: true, color: GOLD, gap: 6 })),
@@ -372,9 +360,8 @@ items.push(
 );
 items.at(-1).moDauBai = true; // phụ lục mở trang riêng
 
-const bieu = bangBieu[0] ?? [];
-items.push({ ...hangBieu(bieu[0] ?? [], true), nenTieuDe: true });
-for (const h of bieu.slice(1)) items.push(hangBieu(h));
+// dùng chung cách kẻ bảng với hai bảng trong thân báo cáo
+items.push(...veBang({ rong: COT, xs: XCOT, hang: bangBieu[0] ?? [] }));
 
 /* -------------------------------------------------- ảnh khen thưởng cuối -- */
 
@@ -414,14 +401,73 @@ for (const a of DS_KHEN) {
 
 const trangThan = await paginate(items);
 
+/* ------------------------------------------------------------ kẻ khung bảng -- */
+
+const VIEN = "#9aa7b4";
+const DEM = 6; // khoảng đệm giữa chữ và đường kẻ
+
+/**
+ * Sau khi xếp trang mới biết ô nào rơi vào trang nào, lúc đó mới kẻ được khung.
+ * Với mỗi bảng trên một trang: gom các ô theo hàng, rồi vẽ một khung cho từng ô.
+ */
+async function keKhungBang(els) {
+  const oBang = els.filter((e) => e.b.o?.bang);
+  if (!oBang.length) return [];
+
+  const khung = [];
+  const theoBang = new Map();
+  for (const e of oBang) {
+    if (!theoBang.has(e.b.o.bang)) theoBang.set(e.b.o.bang, []);
+    theoBang.get(e.b.o.bang).push(e);
+  }
+
+  for (const nhom of theoBang.values()) {
+    // gom theo toạ độ y — mỗi y là một hàng trên trang này
+    const hang = new Map();
+    for (const e of nhom) {
+      if (!hang.has(e.y)) hang.set(e.y, []);
+      hang.get(e.y).push(e);
+    }
+    const dsY = [...hang.keys()].sort((a, b) => a - b);
+
+    for (const [i, y] of dsY.entries()) {
+      const o = hang.get(y);
+      let cao = 0;
+      for (const e of o) cao = Math.max(cao, (await heightOf(e.b)) + e.b.gap);
+      // đáy hàng chạm đúng đỉnh hàng dưới để các đường kẻ liền nhau
+      const day = i + 1 < dsY.length ? dsY[i + 1] : y + cao;
+
+      for (const e of o) {
+        khung.push({
+          id: uid("s"),
+          type: "shape",
+          x: Math.round(e.x - DEM),
+          y: Math.round(y - DEM),
+          w: Math.round(e.b.o.wCot + DEM * 2),
+          h: Math.round(day - y),
+          rotation: 0,
+          borderWidth: 1,
+          borderColor: VIEN,
+          radius: 0,
+          opacity: 1,
+        });
+      }
+    }
+  }
+  return khung;
+}
+
 const out = [
   { background: "#e9f3cf", backgroundImage: BG_BIA, elements: bia.map((b) => toElement(b, b.x ?? M, b.y ?? 0)) },
   { background: "#e9f3cf", backgroundImage: BG_BIA, elements: trangTen.map((b) => toElement(b, b.x ?? M, b.y ?? 0)) },
-  ...trangThan.map(({ els }) => ({
-    background: "#ffffff",
-    backgroundImage: BG_TRANG,
-    elements: els.map(({ b, x, y }) => toElement(b, x ?? b.x ?? M, y)),
-  })),
+  ...(await Promise.all(
+    trangThan.map(async ({ els }) => ({
+      background: "#ffffff",
+      backgroundImage: BG_TRANG,
+      // khung bảng vẽ trước để nằm dưới chữ
+      elements: [...(await keKhungBang(els)), ...els.map(({ b, x, y }) => toElement(b, x ?? b.x ?? M, y))],
+    })),
+  )),
   {
     background: "#0b3f8f",
     backgroundImage: BG_SAU,
@@ -443,7 +489,8 @@ await dongTrinhDuyet();
 
 let loi = 0;
 out.forEach((p, i) => {
-  const hop = p.elements.map((e) => ({
+  // khung bảng cố ý bao quanh chữ nên không tính là chồng lấn
+  const hop = p.elements.filter((e) => e.type !== "shape").map((e) => ({
     id: e.id,
     t: e.y,
     b: e.y + (e.type === "image" ? e.h : (H.get([...H.keys()].find((k) => k.content === e.content)) ?? 0)),

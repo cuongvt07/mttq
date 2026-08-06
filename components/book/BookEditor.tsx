@@ -306,7 +306,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
         const el = pages[pageIndex].elements.find((x) => x.id === d.id);
         patchElement(
           d.id,
-          el?.type === "image" ? { w: Math.round(nw), h: Math.round(nh) } : { w: Math.round(nw) },
+          el && el.type !== "text" ? { w: Math.round(nw), h: Math.round(nh) } : { w: Math.round(nw) },
           false,
         );
       } else if (d.mode === "rotate") {
@@ -475,7 +475,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
         top: selected.y * scale,
         width: selected.w * scale,
         height:
-          (selected.type === "image" ? selected.h : (textHeights[selected.id] ?? 40)) * scale,
+          (selected.type !== "text" ? selected.h : (textHeights[selected.id] ?? 40)) * scale,
       }
     : null;
 
@@ -801,7 +801,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
             <div className="absolute inset-0">
               {page.elements.map((el) => {
                 const isSel = el.id === selectedId;
-                const h = el.type === "image" ? el.h : textHeights[el.id];
+                const h = el.type !== "text" ? el.h : textHeights[el.id];
                 return (
                   <div
                     key={el.id}
@@ -852,7 +852,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
                     const cx = selected.x + selected.w / 2;
                     const cy =
                       selected.y +
-                      (selected.type === "image" ? selected.h : (textHeights[selected.id] ?? 40)) / 2;
+                      (selected.type !== "text" ? selected.h : (textHeights[selected.id] ?? 40)) / 2;
                     startDrag(e, {
                       mode: "rotate",
                       id: selected.id,
@@ -881,7 +881,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
                       mode: "resize",
                       id: selected.id,
                       w: selected.w,
-                      h: selected.type === "image" ? selected.h : 0,
+                      h: selected.type !== "text" ? selected.h : 0,
                     } as Drag)
                   }
                   title="Kéo để đổi kích thước"

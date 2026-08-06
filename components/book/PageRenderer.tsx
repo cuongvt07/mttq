@@ -49,6 +49,22 @@ export function ElementView({ el }: { el: BookElement }) {
     );
   }
 
+  if (el.type === "shape") {
+    return (
+      <div
+        data-el-id={el.id}
+        style={{
+          ...base,
+          height: el.h,
+          background: el.fill || "transparent",
+          border: el.borderWidth ? `${el.borderWidth}px solid ${el.borderColor}` : undefined,
+          borderRadius: el.radius,
+          opacity: el.opacity,
+        }}
+      />
+    );
+  }
+
   return (
     <div data-el-id={el.id} style={{ ...base, height: el.h }}>
       <img
