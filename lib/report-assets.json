@@ -1,0 +1,40 @@
+{
+  "khen": [
+    {
+      "path": "/tin/khen/gk-cong-doan.webp",
+      "caption": "Giấy khen của Chủ tịch UBND phường tặng Công đoàn phường Yên Nghĩa.",
+      "w": 1500,
+      "h": 1039
+    },
+    {
+      "path": "/tin/khen/gk-nhap-ngu.webp",
+      "caption": "Giấy khen của Chủ tịch UBND phường tặng Uỷ ban MTTQ Việt Nam phường về công tác tuyển quân năm 2026.",
+      "w": 1500,
+      "h": 1020
+    },
+    {
+      "path": "/tin/khen/bang-khen-bau-cu.webp",
+      "caption": "Bằng khen của Chủ tịch UBND thành phố Hà Nội tặng Uỷ ban MTTQ Việt Nam phường Yên Nghĩa về công tác bầu cử.",
+      "w": 1500,
+      "h": 1018
+    }
+  ],
+  "giayKhenCu": {
+    "path": "/tin/giay-khen.webp",
+    "w": 1600,
+    "h": 1125,
+    "caption": "Giấy khen của Ban Chấp hành Đảng bộ phường tặng Cơ quan Uỷ ban MTTQ phường."
+  },
+  "hoiNghi": {
+    "path": "/tin/trao-quyet-dinh-2.webp",
+    "w": 1600,
+    "h": 1200,
+    "caption": "Hội nghị công bố quyết định thành lập 15 Ban Công tác Mặt trận ở 15 tổ dân phố."
+  },
+  "traoQuyetDinh": {
+    "path": "/tin/trao-quyet-dinh-1.webp",
+    "w": 1600,
+    "h": 1200,
+    "caption": "Trao quyết định thành lập Ban Công tác Mặt trận các tổ dân phố."
+  }
+}
