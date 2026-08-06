@@ -27,7 +27,8 @@ const W = 800;
 const PH = 1131;                  // khổ A4 (210×297mm) quy về bề rộng 800
 const M = 60;
 const TOP = 96;
-const BOTTOM = PH - 95;
+const CHAN_SEN = 142;              // dải hoa sen trang trí chân trang
+const BOTTOM = PH - 95 - CHAN_SEN; // chữ phải nằm phía trên dải hoa sen
 const CW = W - M * 2;
 const GUT = 24;                    // rãnh giữa hai cột
 const HALF = (CW - GUT) / 2;       // bề rộng một cột
@@ -692,7 +693,7 @@ out.push({
 });
 for (const p of [...tocPages, ...bodyPages.map((p) => p.els)]) {
   out.push({
-    background: "#fffdf6",
+    background: "#ffffff",
     backgroundImage: BG_PAGE,
     elements: p.map(({ b, x, y }) => toElement(b, x ?? b.x ?? M, y)),
   });
@@ -733,7 +734,7 @@ console.log(loi ? `  ${loi} chỗ chồng lấn` : "  không có khối nào ch�
 
 const q = (s) => `'${String(s).replace(/'/g, "''")}'`;
 const chrome = {
-  margin: 48,
+  margin: M,   // trùng lề nội dung để chữ đầu/chân trang thẳng hàng với thân bài
   skipFirstPage: true,
   skipLastPage: true,
   header: {
@@ -743,7 +744,7 @@ const chrome = {
   footer: {
     enabled: true, text: "Số 01 · Tháng 7/2026", align: "left",
     fontSize: 18, color: NAVY, rule: true, ruleColor: GOLD, ruleWidth: 2,
-    pageNumber: true, pageNumberAlign: "right",
+    pageNumber: true, pageNumberAlign: "right", offset: CHAN_SEN - 12,
   },
 };
 

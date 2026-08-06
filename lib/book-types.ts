@@ -73,6 +73,8 @@ export type ChromeBand = {
   ruleWidth: number;
   pageNumber?: boolean;
   pageNumberAlign?: "left" | "center" | "right";
+  /** lùi thêm vào trong so với lề, để chừa chỗ cho hoạ tiết ở mép trang */
+  offset?: number;
 };
 
 export type PageChrome = {

@@ -134,16 +134,24 @@ await sharp(
 // --- trang ruột: nền ngà, băng đỏ đầu trang, khung vàng mảnh, con dấu chìm
 const nenTrang = await sharp(
   svg(`
-    <rect width="${W}" height="${H}" fill="#fffdf6"/>
-    ${dots("#c1121f", 0.035)}
+    <rect width="${W}" height="${H}" fill="#ffffff"/>
     <rect x="0" y="0" width="${W}" height="14" fill="#c1121f"/>
     <rect x="0" y="14" width="${W}" height="4" fill="#f0c14b"/>
     <rect x="0" y="${H - 12}" width="${W}" height="12" fill="#0b3f8f"/>
     <rect x="30" y="34" width="${W - 60}" height="${H - 62}" fill="none" stroke="#e6d9a8" stroke-width="1.5"/>
     <rect x="30" y="34" width="6" height="${H - 62}" fill="#f0c14b" opacity="0.35"/>
-    ${senDay(H - 62, "#e8a3b6", 0.62)}
   `),
 ).toBuffer();
+
+/**
+ * Dải hoa sen trang trí chân trang: đặt vừa trong hai đường kẻ dọc hai bên,
+ * đáy chạm đường kẻ ngang dưới cùng của khung.
+ */
+const CHAN_W = W - 60;
+const chanSen = await sharp(join(ROOT, "assets", "chan-trang-hoa-sen.png"))
+  .resize({ width: CHAN_W })
+  .toBuffer({ resolveWithObject: true });
+export const CHAN_H = chanSen.info.height;
 
 /** con dấu Mặt trận khử màu, mờ 3% làm hoạ tiết chìm giữa trang */
 const dauChim = await sharp(join(ROOT, "public", "brand", "emblem.webp"))
@@ -161,9 +169,14 @@ const dauChim = await sharp(join(ROOT, "public", "brand", "emblem.webp"))
   .toBuffer();
 
 await sharp(nenTrang)
-  .composite([{ input: dauChim, top: Math.round((H - 430) / 2), left: Math.round((W - 430) / 2) }])
+  .composite([
+    { input: dauChim, top: Math.round((H - 430) / 2), left: Math.round((W - 430) / 2) },
+    { input: chanSen.data, top: H - 28 - CHAN_H, left: 30 },
+  ])
   .webp({ quality: 88 })
   .toFile(join(OUT, "bg-trang.webp"));
+
+console.log(`· dải hoa sen chân trang: ${CHAN_W}×${CHAN_H}, đỉnh ở y=${H - 28 - CHAN_H}`);
 
 // --- bìa sau: xanh cờ đậm
 await sharp(

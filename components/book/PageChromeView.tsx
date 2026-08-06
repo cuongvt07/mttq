@@ -46,8 +46,11 @@ function Band({
     textOverflow: "ellipsis" as const,
   });
 
-  const textTop = isHeader ? m : H - m - band.fontSize * 1.2;
-  const ruleTop = isHeader ? m + band.fontSize * 1.2 + gap : H - m - band.fontSize * 1.2 - gap;
+  const lui = band.offset ?? 0;
+  const textTop = isHeader ? m + lui : H - m - lui - band.fontSize * 1.2;
+  const ruleTop = isHeader
+    ? m + lui + band.fontSize * 1.2 + gap
+    : H - m - lui - band.fontSize * 1.2 - gap;
 
   return (
     <>
