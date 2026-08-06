@@ -69,14 +69,58 @@ const goHtml = (s) =>
     .replace(/&quot;/g, '"')
     .replace(/&#39;|&apos;/g, "'");
 
-/** chữ trong một đoạn / ô bảng của Word */
+/** chữ trong một đoạn của Word */
 const chuTrong = (s) =>
   goHtml([...s.matchAll(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/g)].map((t) => t[1]).join(""))
     .replace(/\s+/g, " ")
     .trim();
 
+/** chữ trong một ô bảng: mỗi đoạn một dòng, không dính chữ vào nhau */
+const chuO = (s) =>
+  [...s.matchAll(/<w:p[ >][\s\S]*?<\/w:p>/g)]
+    .map((m) => chuTrong(m[0]))
+    .filter(Boolean)
+    .join("\n");
+
+/** Bảng Word → { cols: [bề rộng], hang: [[ô…]] }, bề rộng quy về khổ trang. */
+function docBang(xml) {
+  const grid = [...xml.matchAll(/<w:gridCol w:w="(\d+)"/g)].map((m) => +m[1]);
+  const tong = grid.reduce((a, b) => a + b, 0) || 1;
+  const KHE = 10;
+  const rong = grid.map((g) => Math.round(((CW - KHE * (grid.length - 1)) * g) / tong));
+  const xs = rong.reduce((a, w, i) => [...a, i ? a[i - 1] + rong[i - 1] + KHE : M], []);
+  const hang = [...xml.matchAll(/<w:tr[ >][\s\S]*?<\/w:tr>/g)].map((h) =>
+    [...h[0].matchAll(/<w:tc>[\s\S]*?<\/w:tc>/g)].map((c) => chuO(c[0])),
+  );
+  return { rong, xs, hang };
+}
+
+/**
+ * Duyệt thân tài liệu theo đúng thứ tự: đoạn văn và bảng xen kẽ nhau, để bảng
+ * nằm đúng chỗ của nó trong báo cáo chứ không bị đổ thành chữ chạy.
+ */
+function docThan(xml) {
+  const body = xml.slice(xml.indexOf("<w:body>"));
+  const khoi = [];
+  let vt = 0;
+  const themDoan = (doan) => {
+    for (const m of doan.matchAll(/<w:p[ >][\s\S]*?<\/w:p>/g)) {
+      const t = chuTrong(m[0]);
+      if (t) khoi.push({ loai: "p", t });
+    }
+  };
+  for (const m of body.matchAll(/<w:tbl>[\s\S]*?<\/w:tbl>/g)) {
+    themDoan(body.slice(vt, m.index));
+    khoi.push({ loai: "bang", ...docBang(m[0]) });
+    vt = m.index + m[0].length;
+  }
+  themDoan(body.slice(vt));
+  return khoi;
+}
+
 const xmlBC = docXml(join(ROOT, "..", "BC phục vụ HN làm việc với Đảng uỷ phường..docx"));
-const dongBC = [...xmlBC.matchAll(/<w:p[ >][\s\S]*?<\/w:p>/g)].map((m) => chuTrong(m[0])).filter(Boolean);
+const thanBC = docThan(xmlBC);
+const dongBC = thanBC.filter((k) => k.loai === "p").map((k) => k.t);
 
 const xmlBieu = docXml(join(ROOT, "..", "ĐU. Biểu kèm theo BC 6 tháng.docx"));
 const bangBieu = [...xmlBieu.matchAll(/<w:tbl>[\s\S]*?<\/w:tbl>/g)].map((b) =>
@@ -150,11 +194,8 @@ const bia = [
   image(anh.hoiNghi.path, Math.round(430 * (anh.hoiNghi.h / anh.hoiNghi.w)), {
     w: 430, x: (W - 430) / 2, y: 692, border: 3, borderColor: XANH, fit: "contain",
   }),
-  text("15 Ban Công tác Mặt trận ở 15 tổ dân phố", {
-    size: 19, font: SANS, bold: true, color: XANH, align: "center", x: M, y: 1024, w: CW, lh: 1.4,
-  }),
   text("Yên Nghĩa, tháng 8 năm 2026", {
-    size: 20, italic: true, color: "#1f4d20", align: "center", x: M, y: 1066, w: CW, lh: 1.4,
+    size: 20, italic: true, color: "#1f4d20", align: "center", x: M, y: 1030, w: CW, lh: 1.4,
   }),
 ];
 
@@ -224,25 +265,62 @@ items.push(
   ),
 );
 
-// Bỏ 10 dòng đầu (đã dựng thành phần đầu công văn ở trên) và khối "Nơi nhận"
-const batDau = dongBC.findIndex((t) => /^Thực hiện Công văn/.test(t));
-const ketThuc = dongBC.findIndex((t) => /^Nơi nhận:/.test(t));
-for (const dong of dongBC.slice(batDau, ketThuc)) items.push(CAP[phanCap(dong)](dong));
+/**
+ * Một bảng của báo cáo → các hàng để xếp trang. Hàng đầu là tiêu đề cột (đậm,
+ * màu đỏ); mỗi ô là một cột chữ riêng nên chữ dài tự xuống dòng trong ô.
+ */
+function veBang({ rong, xs, hang }) {
+  const dungHang = (o, dauBang) => ({
+    type: "row",
+    cols: rong.map((w, c) => [
+      text(o[c] ?? "", {
+        size: dauBang ? 17 : 18,
+        font: SANS,
+        bold: dauBang,
+        color: dauBang ? RED : INK,
+        align: c === 0 ? "center" : "left",
+        w,
+        lh: 1.42,
+        gap: dauBang ? 12 : 16,
+      }),
+    ]),
+    xs,
+  });
 
-// Khối ký cuối báo cáo
+  const tieuDe = dungHang(hang[0] ?? [], true);
+  // các hàng dữ liệu mang theo dòng tiêu đề, để bảng vắt trang thì nhắc lại
+  return [tieuDe, ...hang.slice(1).map((o) => ({ ...dungHang(o, false), tieuDeBang: tieuDe }))];
+}
+
+// Thân báo cáo: đoạn văn và bảng xen kẽ đúng thứ tự trong file Word.
+// Bỏ phần đầu công văn và khối "Nơi nhận" (hai bảng 2 cột) vì đã dựng riêng.
+const batDau = thanBC.findIndex((k) => k.loai === "p" && /^Thực hiện Công văn/.test(k.t));
+for (const khoi of thanBC.slice(batDau)) {
+  if (khoi.loai === "p") {
+    items.push(CAP[phanCap(khoi.t)](khoi.t));
+  } else if (khoi.rong.length >= 3) {
+    items.push(...veBang(khoi));
+  }
+}
+
+// Khối ký cuối báo cáo (trong file Word nằm trong một bảng 2 cột nên dựng riêng)
+const NOI_NHAN = [
+  "Nơi nhận:",
+  "- BTT UB MTTQ Việt Nam Thành phố (để b/c);",
+  "- Ban Thường vụ Đảng ủy phường (để b/c);",
+  "- Các tổ chức chính trị - xã hội phường;",
+  "- Lưu: BTT-MTTQ.",
+];
 items.push(
   group(
-    ...dongBC
-      .slice(ketThuc)
-      .filter((t) => !/^TM\.|^CHỦ TỊCH$|^Lương Huệ Minh$/.test(t))
-      .map((t) =>
-        atom(
-          text(t, {
-            size: 19, font: SANS, italic: !/^Nơi nhận:/.test(t), bold: /^Nơi nhận:/.test(t),
-            color: MUTED, lh: 1.5, gap: 4,
-          }),
-        ),
+    ...NOI_NHAN.map((t) =>
+      atom(
+        text(t, {
+          size: 19, font: SANS, italic: !/^Nơi nhận:/.test(t), bold: /^Nơi nhận:/.test(t),
+          color: MUTED, lh: 1.5, gap: 4,
+        }),
       ),
+    ),
     atom(
       text("TM. BAN THƯỜNG TRỰC\nCHỦ TỊCH", {
         size: 20, font: SANS, bold: true, color: INK, align: "center", x: M + CW / 2, w: CW / 2, lh: 1.5, gap: 76,

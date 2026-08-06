@@ -522,6 +522,12 @@ export async function paginate(items, { continuedLabel } = {}) {
         y += (await heightOf(label)) + label.gap;
       }
       if (it.co) h = await coAnh(it, h); // căn lại theo trang mới
+
+      // Bảng vắt sang trang mới thì nhắc lại dòng tiêu đề cột cho dễ đọc
+      if (it.tieuDeBang) {
+        const hTieuDe = await heightOfItem(it.tieuDeBang);
+        if (y + hTieuDe + h <= BOTTOM) await place(it.tieuDeBang);
+      }
     }
 
     if (it.bai) baiTrenTrang.add(it.bai);
