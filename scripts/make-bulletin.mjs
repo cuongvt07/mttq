@@ -134,7 +134,8 @@ const anhCum = (img, h, w, nguon = "Báo Hànộimới") => [
  * Ảnh xen kẽ nhiều kiểu cho đỡ đơn điệu: ảnh lớn ngang, ảnh nửa trái, nửa phải,
  * và cặp hai ảnh cạnh nhau.
  */
-async function articleAtoms(a) {
+async function articleAtoms(a, tyLe = 1) {
+  const co = (h) => Math.round(h * tyLe);
   const out = [];
 
   const header = atom(
@@ -159,8 +160,8 @@ async function articleAtoms(a) {
   const mo = [header];
   let cumAnhMo = null;
   if (imgs.length) {
-    const anh = anhCum(imgs.shift(), 320, CW, a.source);
-    cumAnhMo = { ...atom(...anh), co: { anh: anh[0], min: 230, max: 520 } };
+    const anh = anhCum(imgs.shift(), co(320), CW, a.source);
+    cumAnhMo = { ...atom(...anh), co: { anh: anh[0], min: co(230), max: co(520) } };
     mo.push(atom(...anh));
   }
   if (moDau) mo.push(moDau);
@@ -168,11 +169,8 @@ async function articleAtoms(a) {
   // Cụm mở bài dính liền nhau; ảnh mở bài co theo chỗ trống còn lại của trang
   // nên bài mới có thể chạy tiếp ngay trên trang đang dở, không phải sang trang.
   const cumMo = group(...mo);
-  if (cumAnhMo) {
-    cumMo.co = cumAnhMo.co;
-    // phương án dự phòng khi trang chỉ còn đủ chỗ cho phần chữ
-    cumMo.moBai = { tieuDe: header, tiep: [...(moDau ? [moDau] : []), cumAnhMo] };
-  }
+  cumMo.moDauBai = true; // mỗi tin luôn mở đầu ở một trang riêng
+  if (cumAnhMo) cumMo.co = cumAnhMo.co;
   out.push(cumMo);
 
   // Thân bài: ảnh nửa trang LUÔN có chữ chạy bên cạnh (trái → phải → ngang lớn)
@@ -188,12 +186,12 @@ async function articleAtoms(a) {
     if (kieu % 3 === 2) {
       // ảnh ngang lớn, chữ nằm trên nó — không đặt ảnh nào cạnh ảnh
       out.push(atom(text(doan, { align: "justify", gap: 14 })));
-      const anhNgang = anhCum(imgs.shift(), 300, CW, a.source);
-      out.push({ ...atom(...anhNgang), co: { anh: anhNgang[0], min: 170, max: 560 } });
+      const anhNgang = anhCum(imgs.shift(), co(300), CW, a.source);
+      out.push({ ...atom(...anhNgang), co: { anh: anhNgang[0], min: co(170), max: co(560) } });
     } else {
       // gộp thêm một đoạn nữa để chữ có phần chảy tiếp bên dưới ảnh
       const noiDung = [doan, ...(paras.length ? [paras.shift()] : [])].join("\n\n");
-      out.push(await wrapItem(imgs.shift(), kieu % 3 === 0 ? "left" : "right", noiDung, 250, a.source));
+      out.push(await wrapItem(imgs.shift(), kieu % 3 === 0 ? "left" : "right", noiDung, co(250), a.source));
     }
     kieu++;
   }
@@ -201,8 +199,8 @@ async function articleAtoms(a) {
   // Ảnh còn thừa khi đã hết chữ: để ngang cả trang, không ghép đôi.
   // Cho co giãn chiều cao để lấp kín chỗ trống cuối bài, khỏi hở một mảng trắng.
   for (const img of imgs) {
-    const blocks = anhCum(img, 300, CW, a.source);
-    out.push({ ...atom(...blocks), co: { anh: blocks[0], min: 170, max: 620 } });
+    const blocks = anhCum(img, co(300), CW, a.source);
+    out.push({ ...atom(...blocks), co: { anh: blocks[0], min: co(170), max: co(620) } });
   }
 
   return out;
@@ -468,6 +466,10 @@ async function paginate(items, { continuedLabel } = {}) {
   const hangDoi = [...items];
   while (hangDoi.length) {
     const it = hangDoi.shift();
+
+    // Tin mới không được nằm chung trang với nội dung tin trước — sang trang luôn.
+    if (it.moDauBai && cur.length) ngatTrang();
+
     let h = await heightOfItem(it);
     // căn theo chỗ trống của trang hiện tại; nếu vẫn không vừa thì sang trang
     // mới rồi căn lại theo cả trang
@@ -539,19 +541,6 @@ async function paginate(items, { continuedLabel } = {}) {
         }
       }
 
-      // Cụm mở bài không đủ chỗ nhưng trang còn trống nhiều: cho tiêu đề và
-      // phần đầu sapo của tin mới lấp nốt trang này, ảnh mở bài sang trang sau
-      // — giống cách báo giấy vẫn làm, khỏi bỏ trống nửa trang.
-      if (it.moBai) {
-        const hTieuDe = await heightOfItem(it.moBai.tieuDe);
-        if (y + hTieuDe + 110 <= BOTTOM) {
-          if (it.bai) baiTrenTrang.add(it.bai);
-          await place(it.moBai.tieuDe);
-          hangDoi.unshift(...it.moBai.tiep.map((x) => ({ ...x, bai: it.bai })));
-          continue;
-        }
-      }
-
       if (process.env.SOI)
         console.log(
           `    [soi] trang ${pages.length + 1}: hở ${Math.round(BOTTOM - y)}px vì mục "${it.type}"` +
@@ -586,8 +575,27 @@ async function paginate(items, { continuedLabel } = {}) {
  */
 const thanBai = [];
 
-for (const a of ok) {
-  for (const it of await articleAtoms(a)) thanBai.push({ ...it, bai: a.key });
+/** Phần trang đã dùng của trang cuối cùng — để biết trang đó có bị trống trơ không. */
+async function dayTrangCuoi(trang) {
+  let day = TOP;
+  for (const { b, y } of trang.at(-1).els) day = Math.max(day, y + (await heightOf(b)));
+  return day - TOP;
+}
+
+/**
+ * Xếp một tin, thử vài cỡ ảnh rồi chọn phương án ít trang nhất. Vì mỗi tin đều
+ * mở trang riêng nên thu ảnh nhỏ lại một chút thường kéo được phần đuôi bài về,
+ * bớt hẳn một trang gần như trống.
+ */
+async function xepMotBai(a) {
+  let tot = null;
+  for (const tyLe of [1.3, 1.15, 1, 0.88, 0.76]) {
+    const trang = await paginate(await articleAtoms(a, tyLe));
+    // ít trang hơn thắng; cùng số trang thì trang cuối đầy hơn thắng
+    const diem = trang.length * 100000 - (await dayTrangCuoi(trang));
+    if (!tot || diem < tot.diem) tot = { trang, diem, tyLe };
+  }
+  return tot.trang;
 }
 
 // Ba tin trên fanpage phường không tải được nội dung → gom thành một trang giới thiệu
@@ -643,7 +651,7 @@ if (blocked.length) {
       }),
     ),
   ];
-  for (const it of atoms) thanBai.push({ ...it, bai: "fanpage" });
+  atoms.forEach((it, i) => thanBai.push({ ...it, bai: "fanpage", moDauBai: i === 0 }));
 }
 
 // Trang giấy khen
@@ -674,10 +682,15 @@ if (blocked.length) {
       }),
     ),
   ];
-  for (const it of atoms) thanBai.push({ ...it, bai: "khen-thuong" });
+  atoms.forEach((it, i) => thanBai.push({ ...it, bai: "khen-thuong", moDauBai: i === 0 }));
 }
 
-const bodyPages = await paginate(thanBai);
+// Mỗi tin xếp riêng (tin mới luôn mở trang mới), rồi nối lại thành thân sách
+const bodyPages = [];
+for (const a of ok) {
+  for (const t of await xepMotBai(a)) bodyPages.push({ els: t.els, bai: new Set([a.key]) });
+}
+for (const t of await paginate(thanBai)) bodyPages.push(t);
 
 /* ------------------------------------------------- mục lục (biết số trang) -- */
 // bìa = 1, mục lục = 2, nội dung bắt đầu từ trang 3
