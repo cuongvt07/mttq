@@ -121,13 +121,36 @@ const articles = JSON.parse(await readFile(join(ROOT, "lib", "bulletin-articles.
 const ok = articles.filter((a) => a.ok);
 const blocked = articles.filter((a) => !a.ok);
 
-/** cụm ảnh + chú thích theo bề rộng cho trước */
-const anhCum = (img, h, w, nguon = "Báo Hànộimới") => [
-  image(img.path, h, { w, border: 3, gap: 8 }),
+/** tỉ lệ cao/rộng thật của ảnh — khung phải ôm trọn ảnh, không được cắt xén */
+const tyLeAnh = (img) => (img.w && img.h ? img.h / img.w : 0.7);
+
+/**
+ * Cụm ảnh + chú thích. Chỉ cho bề rộng ảnh, chiều cao suy ra từ tỉ lệ thật nên
+ * ảnh luôn vào trọn khung. Chú thích chạy hết bề ngang cột, ảnh căn giữa cột.
+ */
+const anhCum = (img, wAnh, nguon = "Báo Hànộimới", wCot = CW, xCot = M) => [
+  image(img.path, Math.round(wAnh * tyLeAnh(img)), {
+    w: wAnh,
+    x: Math.round(xCot + (wCot - wAnh) / 2),
+    border: 3,
+    gap: 8,
+    fit: "contain",
+  }),
   text(img.caption || `Ảnh: ${nguon}.`, {
-    size: 17, font: SANS, color: MUTED, italic: true, lh: 1.4, w, gap: 14,
+    size: 17, font: SANS, color: MUTED, italic: true, lh: 1.4, w: wCot, x: xCot, gap: 14,
   }),
 ];
+
+/**
+ * Mô tả khả năng co giãn của một cụm ảnh: co chiều cao thì bề ngang co theo
+ * đúng tỉ lệ, nên ảnh không bao giờ bị méo hay cắt mất phần nào.
+ */
+const khungCo = (img, blocks, min, max) => ({
+  anh: blocks[0],
+  ty: tyLeAnh(img),
+  min,
+  max: Math.min(max, Math.round(CW * tyLeAnh(img))),
+});
 
 /**
  * Bài báo → danh sách mục để xếp trang.
@@ -160,8 +183,9 @@ async function articleAtoms(a, tyLe = 1) {
   const mo = [header];
   let cumAnhMo = null;
   if (imgs.length) {
-    const anh = anhCum(imgs.shift(), co(320), CW, a.source);
-    cumAnhMo = { ...atom(...anh), co: { anh: anh[0], min: co(230), max: co(520) } };
+    const img = imgs.shift();
+    const anh = anhCum(img, Math.min(CW, co(CW)), a.source);
+    cumAnhMo = { ...atom(...anh), co: khungCo(img, anh, 250, 560) };
     mo.push(atom(...anh));
   }
   if (moDau) mo.push(moDau);
@@ -186,12 +210,13 @@ async function articleAtoms(a, tyLe = 1) {
     if (kieu % 3 === 2) {
       // ảnh ngang lớn, chữ nằm trên nó — không đặt ảnh nào cạnh ảnh
       out.push(atom(text(doan, { align: "justify", gap: 14 })));
-      const anhNgang = anhCum(imgs.shift(), co(300), CW, a.source);
-      out.push({ ...atom(...anhNgang), co: { anh: anhNgang[0], min: co(170), max: co(560) } });
+      const img = imgs.shift();
+      const anhNgang = anhCum(img, Math.min(CW, co(CW)), a.source);
+      out.push({ ...atom(...anhNgang), co: khungCo(img, anhNgang, 190, 560) });
     } else {
       // gộp thêm một đoạn nữa để chữ có phần chảy tiếp bên dưới ảnh
       const noiDung = [doan, ...(paras.length ? [paras.shift()] : [])].join("\n\n");
-      out.push(await wrapItem(imgs.shift(), kieu % 3 === 0 ? "left" : "right", noiDung, co(250), a.source));
+      out.push(await wrapItem(imgs.shift(), kieu % 3 === 0 ? "left" : "right", noiDung, Math.min(HALF, co(HALF)), a.source));
     }
     kieu++;
   }
@@ -199,8 +224,8 @@ async function articleAtoms(a, tyLe = 1) {
   // Ảnh còn thừa khi đã hết chữ: để ngang cả trang, không ghép đôi.
   // Cho co giãn chiều cao để lấp kín chỗ trống cuối bài, khỏi hở một mảng trắng.
   for (const img of imgs) {
-    const blocks = anhCum(img, co(300), CW, a.source);
-    out.push({ ...atom(...blocks), co: { anh: blocks[0], min: co(170), max: co(620) } });
+    const blocks = anhCum(img, Math.min(CW, co(CW)), a.source);
+    out.push({ ...atom(...blocks), co: khungCo(img, blocks, 190, 700) });
   }
 
   return out;
@@ -320,13 +345,36 @@ const doanKhoi = (noiDung, o = {}) => {
   );
 };
 
-async function wrapItem(img, side, content, imgH = 250, nguon) {
-  const cot = anhCum(img, imgH, HALF, nguon);
-  let colH = 0;
-  for (const b of cot) colH += (await heightOf(b)) + b.gap;
-  colH -= cot.at(-1).gap; // không tính gap cuối
+/** chiều cao cột ảnh (ảnh + chú thích), không tính khoảng cách cuối */
+async function caoCot(cot) {
+  let h = 0;
+  for (const b of cot) h += (await heightOf(b)) + b.gap;
+  return h - cot.at(-1).gap;
+}
 
-  const [ben, duoi] = await splitToFit(content, HALF, colH);
+async function wrapItem(img, side, content, wAnh = HALF, nguon) {
+  const ty = tyLeAnh(img);
+  const dung = (w) => anhCum(img, Math.min(HALF, Math.max(150, Math.round(w))), nguon, HALF);
+
+  let cot = dung(wAnh);
+  let colH = await caoCot(cot);
+  let [ben, duoi] = await splitToFit(content, HALF, colH);
+
+  // Chữ bên cạnh chỉ cắt được ở cuối câu nên thường ngắn hơn cột ảnh, để hở một
+  // mảng trắng cạnh ảnh. Thu ảnh lại cho hai cột cao xấp xỉ nhau — cân đối hơn.
+  for (let lan = 0; lan < 3; lan++) {
+    if (!ben) break;
+    const hBen = await measureText(ben, HALF);
+    if (colH - hBen <= 40) break;
+
+    const hChuThich = colH - cot[0].h - cot[0].gap;
+    const wMoi = (hBen - hChuThich - cot[0].gap) / ty;
+    if (wMoi >= cot[0].w || wMoi < 150) break;
+
+    cot = dung(wMoi);
+    colH = await caoCot(cot);
+    [ben, duoi] = await splitToFit(content, HALF, colH);
+  }
 
   return {
     type: "wrap",
@@ -357,6 +405,18 @@ async function paginate(items, { continuedLabel } = {}) {
     baiTrenTrang = new Set();
     y = TOP;
   }
+
+  /** mọi khối ảnh nằm trong một mục, kể cả trong nhóm hay cụm ảnh–chữ */
+  function anhTrongMuc(it) {
+    if (!it) return [];
+    if (it.type === "group") return it.items.flatMap(anhTrongMuc);
+    if (it.type === "wrap") return (it.cot ?? []).filter((b) => b.kind === "image");
+    if (it.type === "row") return it.cols.flat().filter((b) => b.kind === "image");
+    return (it.blocks ?? []).filter((b) => b.kind === "image");
+  }
+
+  /** ảnh đã đặt trên trang hiện tại — một trang chỉ chấp nhận ảnh cùng một cỡ */
+  const anhTrenTrang = () => cur.filter((e) => e.b.kind === "image").map((e) => e.b);
 
   /** chiều cao của một mục: atom xếp dọc, row lấy cột cao nhất */
   async function heightOfItem(it) {
@@ -437,11 +497,12 @@ async function paginate(items, { continuedLabel } = {}) {
    * để cuối bài không hở một mảng trắng lớn. Trả về chiều cao mục sau khi chỉnh.
    */
   async function coAnh(it, h) {
-    const anh = it.co.anh;
+    const { anh, ty, min, max } = it.co;
     const phuTro = h - anh.h; // chú thích + các khoảng cách, không co theo
-    const cao = Math.min(it.co.max, BOTTOM - y - phuTro);
 
-    anh.h = Math.max(it.co.min, Math.round(cao));
+    anh.h = Math.max(min, Math.min(max, Math.round(BOTTOM - y - phuTro)));
+    anh.w = Math.round(anh.h / ty); // giữ đúng tỉ lệ → ảnh vào trọn khung
+    anh.x = Math.round(M + (CW - anh.w) / 2);
     H.set(anh, anh.h);
     return anh.h + phuTro;
   }
@@ -475,7 +536,13 @@ async function paginate(items, { continuedLabel } = {}) {
     // mới rồi căn lại theo cả trang
     if (it.co) h = await coAnh(it, h);
 
-    if (cur.length && y + h > BOTTOM) {
+    // Một trang không được chứa hai ảnh khác cỡ. Xử lý y như trường hợp không
+    // đủ chỗ: ưu tiên cho chữ lên trước, ảnh lùi lại, rồi mới ngắt trang.
+    const daCo = anhTrenTrang();
+    const lechCo =
+      daCo.length > 0 && anhTrongMuc(it).some((a) => a.w !== daCo[0].w || a.h !== daCo[0].h);
+
+    if (cur.length && (y + h > BOTTOM || lechCo)) {
       const chia = await chiaDoan(it, BOTTOM - y);
       if (chia) {
         if (it.bai) baiTrenTrang.add(it.bai);
@@ -488,11 +555,11 @@ async function paginate(items, { continuedLabel } = {}) {
       // Cụm ảnh–chữ quá cao: thu nhỏ ảnh cho lõi cụm (ảnh + chữ bên cạnh) lọt
       // vào phần trang còn lại, phần chữ chảy xuống dưới thì tách ra chạy tiếp
       // — thay vì đẩy cả cụm sang trang sau và bỏ trống nửa trang.
-      if (it.type === "wrap" && it.goc) {
+      if (it.type === "wrap" && it.goc && !lechCo) {
         let lot = null;
-        for (const hAnh of [250, 215, 185, 160, 140]) {
+        for (const wAnh of [HALF, HALF * 0.86, HALF * 0.74, HALF * 0.62, 150]) {
           const thu =
-            hAnh === 250 ? it : await wrapItem(it.goc.img, it.side, it.goc.content, hAnh, it.goc.nguon);
+            wAnh === HALF ? it : await wrapItem(it.goc.img, it.side, it.goc.content, wAnh, it.goc.nguon);
           if (y + thu.colH + 14 <= BOTTOM) { lot = thu; break; }
         }
         if (lot) {
@@ -510,7 +577,7 @@ async function paginate(items, { continuedLabel } = {}) {
           if (it.bai) baiTrenTrang.add(it.bai);
           await place(atom(text(tren, { align: "justify", gap: 14 })));
           hangDoi.unshift({
-            ...(await wrapItem(it.goc.img, it.side, duoi, 250, it.goc.nguon)),
+            ...(await wrapItem(it.goc.img, it.side, duoi, HALF, it.goc.nguon)),
             bai: it.bai,
           });
           ngatTrang();
@@ -526,7 +593,7 @@ async function paginate(items, { continuedLabel } = {}) {
       const laChu = (x) =>
         x.type === "atom" && x.blocks.length === 1 && x.blocks[0].kind === "text";
 
-      if (laAnh(it) && BOTTOM - y > 120) {
+      if (laAnh(it) && (lechCo || BOTTOM - y > 120)) {
         let j = -1;
         for (let k = 0; k < hangDoi.length; k++) {
           const x = hangDoi[k];
@@ -900,6 +967,17 @@ console.log(loi ? `  ${loi} chỗ chồng lấn` : "  không có khối nào ch�
     hoGiua.length
       ? `  ✗ hở GIỮA tin (cần sửa): ${hoGiua.join(", ")}`
       : "  không trang nào hở giữa tin",
+  );
+
+  // Một trang không được có hai ảnh khác cỡ
+  const lechCo = [];
+  out.slice(1, -1).forEach((p, i) => {
+    const anh = p.elements.filter((e) => e.type === "image");
+    if (anh.length > 1 && anh.some((e) => e.w !== anh[0].w || e.h !== anh[0].h))
+      lechCo.push(`trang ${i + 2} (${anh.map((e) => `${e.w}×${e.h}`).join(", ")})`);
+  });
+  console.log(
+    lechCo.length ? `  ✗ trang có ảnh khác cỡ: ${lechCo.join(", ")}` : "  không trang nào có ảnh khác cỡ",
   );
   if (hoCuoi.length) console.log(`  · hở ở cuối tin (chấp nhận được): ${hoCuoi.join(", ")}`);
 }
