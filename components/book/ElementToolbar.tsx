@@ -33,8 +33,8 @@ export default function ElementToolbar({
   const chu = el as TextElement;
   const anh = el as ImageElement;
 
-  const canhTiep = { left: "center", center: "right", right: "left" } as const;
-  const nhanCanh = { left: "Trái", center: "Giữa", right: "Phải" } as const;
+  const canhTiep = { left: "center", center: "right", right: "justify", justify: "left" } as const;
+  const nhanCanh = { left: "Trái", center: "Giữa", right: "Phải", justify: "Đều" } as const;
 
   return (
     <div

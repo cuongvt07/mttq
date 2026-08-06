@@ -29,7 +29,7 @@ export type TextElement = {
   color: string;
   bold: boolean;
   italic: boolean;
-  align: "left" | "center" | "right";
+  align: "left" | "center" | "right" | "justify";
   lineHeight: number;
   /** bấm vào chữ mở link (bài báo, tài liệu…) */
   href?: string;
@@ -64,7 +64,7 @@ export type ChromeBand = {
   enabled: boolean;
   /** hỗ trợ {trang} và {tong} */
   text: string;
-  align: "left" | "center" | "right";
+  align: "left" | "center" | "right" | "justify";
   fontSize: number;
   color: string;
   /** đường kẻ dải ngăn cách */

@@ -93,7 +93,7 @@ function BandFields({
               <select
                 value={band.pageNumberAlign ?? "right"}
                 onChange={(e) =>
-                  onChange({ pageNumberAlign: e.target.value as ChromeBand["align"] })
+                  onChange({ pageNumberAlign: e.target.value as ChromeBand["pageNumberAlign"] })
                 }
                 className="adm-input"
               >

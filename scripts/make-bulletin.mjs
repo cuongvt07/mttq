@@ -28,7 +28,7 @@ const PH = 1131;                  // khổ A4 (210×297mm) quy về bề rộng 
 const M = 60;
 const TOP = 96;
 const CHAN_SEN = 142;              // dải hoa sen trang trí chân trang
-const BOTTOM = PH - 95 - CHAN_SEN; // chữ phải nằm phía trên dải hoa sen
+const BOTTOM = PH - 52 - CHAN_SEN; // chữ phải nằm phía trên dải hoa sen
 const CW = W - M * 2;
 const GUT = 24;                    // rãnh giữa hai cột
 const HALF = (CW - GUT) / 2;       // bề rộng một cột
@@ -151,9 +151,9 @@ async function articleAtoms(a) {
   // Mở bài: tiêu đề + ảnh lớn ngang + sapo nằm trọn trang đầu của bài.
   // Ảnh mở bài được căn cao vừa đúng phần trang còn lại, không để hở cuối trang.
   const moDau = a.sapo
-    ? atom(text(a.sapo, { size: 24, bold: true, color: NAVY, lh: 1.55, gap: 16 }))
+    ? atom(text(a.sapo, { size: 24, bold: true, color: NAVY, lh: 1.55, align: "justify", gap: 16 }))
     : paras.length
-      ? atom(text(paras.shift(), { gap: 14 }))
+      ? atom(text(paras.shift(), { align: "justify", gap: 14 }))
       : null;
 
   const mo = [header];
@@ -181,13 +181,13 @@ async function articleAtoms(a) {
     const doan = paras.shift();
 
     if (!imgs.length) {
-      out.push(atom(text(doan, { gap: 14 })));
+      out.push(atom(text(doan, { align: "justify", gap: 14 })));
       continue;
     }
 
     if (kieu % 3 === 2) {
       // ảnh ngang lớn, chữ nằm trên nó — không đặt ảnh nào cạnh ảnh
-      out.push(atom(text(doan, { gap: 14 })));
+      out.push(atom(text(doan, { align: "justify", gap: 14 })));
       out.push(atom(...anhCum(imgs.shift(), 300, CW, a.source)));
     } else {
       // gộp thêm một đoạn nữa để chữ có phần chảy tiếp bên dưới ảnh
@@ -310,7 +310,7 @@ const HO_DOAN = 16;
 const doanKhoi = (noiDung, o = {}) => {
   const doan = noiDung.split(/\n{2,}/).map((t) => t.trim()).filter(Boolean);
   return doan.map((t, i) =>
-    text(t, { ...o, gap: i === doan.length - 1 ? (o.gapCuoi ?? 0) : HO_DOAN }),
+    text(t, { align: "justify", ...o, gap: i === doan.length - 1 ? (o.gapCuoi ?? 0) : HO_DOAN }),
   );
 };
 
@@ -739,12 +739,14 @@ const chrome = {
   skipLastPage: true,
   header: {
     enabled: true, text: "BẢN TIN MẶT TRẬN · PHƯỜNG YÊN NGHĨA", align: "left",
-    fontSize: 18, color: RED, rule: true, ruleColor: GOLD, ruleWidth: 2, pageNumber: false,
+    fontSize: 18, color: RED, rule: true, ruleColor: GOLD, ruleWidth: 2,
+    pageNumber: true, pageNumberAlign: "right",
   },
   footer: {
-    enabled: true, text: "Số 01 · Tháng 7/2026", align: "left",
-    fontSize: 18, color: NAVY, rule: true, ruleColor: GOLD, ruleWidth: 2,
-    pageNumber: true, pageNumberAlign: "right", offset: CHAN_SEN - 12,
+    // bỏ hẳn chân trang: số trang đã nằm ở góc trên bên phải
+    enabled: false, text: "", align: "left",
+    fontSize: 18, color: NAVY, rule: false, ruleColor: GOLD, ruleWidth: 2,
+    pageNumber: false,
   },
 };
 
