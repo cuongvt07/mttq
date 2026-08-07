@@ -160,11 +160,14 @@ const phanCap = (s) =>
 
 /** Bìa 1 — theo bản phác của phường: tên cơ quan, tên báo cáo, ảnh khen thưởng. */
 
-// Bìa chỉ đặt Giấy khen của Uỷ ban MTTQ phường (Bằng khen của Thành phố vẫn
-// nằm ở phần hình ảnh khen thưởng cuối sách).
-const GK_BIA = anh.mttq.filter((a) => /Giấy khen/.test(a.caption));
-const KHUNG_KHEN = { w: 290, h: Math.round(290 * Math.max(...GK_BIA.map((a) => a.h / a.w))) };
-const KHE_KHEN = 40;
+// Bìa đặt cả ba tấm khen thưởng của Uỷ ban MTTQ phường: hai Giấy khen và
+// Bằng khen của Thành phố.
+const GK_BIA = anh.mttq;
+const KHE_KHEN = 22;
+const KHUNG_KHEN = (() => {
+  const w = Math.floor((CW - KHE_KHEN * (GK_BIA.length - 1)) / GK_BIA.length);
+  return { w, h: Math.round(w * Math.max(...GK_BIA.map((a) => a.h / a.w))) };
+})();
 const X_KHEN = Math.round(M + (CW - (KHUNG_KHEN.w * GK_BIA.length + KHE_KHEN * (GK_BIA.length - 1))) / 2);
 const bia = [
   image(EMBLEM, 92, { w: 92, x: (W - 92) / 2, y: 74, radius: 0, fit: "contain" }),
@@ -192,20 +195,19 @@ const bia = [
       fit: "contain",
     }),
   ),
-  text("Giấy khen tặng Uỷ ban Mặt trận Tổ quốc Việt Nam phường Yên Nghĩa", {
+  text("Bằng khen, Giấy khen tặng Uỷ ban Mặt trận Tổ quốc Việt Nam phường Yên Nghĩa", {
     size: 17, font: SANS, italic: true, color: MUTED, align: "center", x: M, y: 496 + KHUNG_KHEN.h, w: CW, lh: 1.4,
   }),
 
   // khung đúng tỉ lệ ảnh nên không hở viền hai bên; bề rộng suy từ chiều cao
   // còn lại của bìa để ảnh không bao giờ chạm dòng ngày tháng
+  // ảnh hội nghị dạng dải ngang, kéo dài hết bề ngang trang bìa
   ...(() => {
-    const y = 496 + KHUNG_KHEN.h + 42; // dưới dòng chú thích khen thưởng
-    const cao = 1030 - 14 - y; // chừa chỗ cho dòng ngày tháng
-    const rong = Math.round(cao / (anh.hoiNghi.h / anh.hoiNghi.w));
+    const a = anh.hoiNghiDai;
+    const cao = Math.round(CW * (a.h / a.w));
+    const y = Math.max(496 + KHUNG_KHEN.h + 42, 1016 - cao);
     return [
-      image(anh.hoiNghi.path, cao, {
-        w: rong, x: Math.round((W - rong) / 2), y, border: 3, borderColor: XANH, fit: "contain",
-      }),
+      image(a.path, cao, { w: CW, x: M, y, border: 3, borderColor: XANH, fit: "contain" }),
     ];
   })(),
   text("Yên Nghĩa, tháng 8 năm 2026", {
@@ -393,8 +395,14 @@ items.push(cumKhen);
 // Thứ tự: khen thưởng của Uỷ ban MTTQ phường trước, rồi các tổ chức thành viên
 // theo đúng thứ tự phường yêu cầu — Phụ nữ, Cựu chiến binh, Đoàn Thanh niên,
 // Công đoàn.
-const DS_KHEN = [...anh.mttq, ...anh.doanThe];
-const W_KHEN = 500;
+// Bằng khen của Thành phố đứng trên, Giấy khen đứng dưới trên cùng một trang.
+const bangKhen = anh.mttq.filter((a) => /Bằng khen/.test(a.caption));
+const giayKhen = anh.mttq.filter((a) => !/Bằng khen/.test(a.caption));
+const DS_KHEN = [...bangKhen, ...giayKhen, ...anh.doanThe];
+
+// khung nhỏ hơn một chút để hai tấm luôn lọt cùng một trang, kể cả khi chú
+// thích dài hai dòng
+const W_KHEN = 400;
 const H_KHEN = Math.round(W_KHEN * Math.max(...DS_KHEN.map((a) => a.h / a.w)));
 
 for (const a of DS_KHEN) {
@@ -475,8 +483,8 @@ async function keKhungBang(els) {
 }
 
 const out = [
-  { background: "#e9f3cf", backgroundImage: BG_BIA, elements: bia.map((b) => toElement(b, b.x ?? M, b.y ?? 0)) },
-  { background: "#e9f3cf", backgroundImage: BG_BIA, elements: trangTen.map((b) => toElement(b, b.x ?? M, b.y ?? 0)) },
+  { background: "#fdf3d2", backgroundImage: BG_BIA, elements: bia.map((b) => toElement(b, b.x ?? M, b.y ?? 0)) },
+  { background: "#fdf3d2", backgroundImage: BG_BIA, elements: trangTen.map((b) => toElement(b, b.x ?? M, b.y ?? 0)) },
   ...(await Promise.all(
     trangThan.map(async ({ els }) => ({
       background: "#ffffff",

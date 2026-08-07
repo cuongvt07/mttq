@@ -6,7 +6,7 @@
  *
  *   node scripts/prepare-report-assets.mjs
  */
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
@@ -50,18 +50,38 @@ const QUET = [
     anh: [
       { khoa: "phuNu", file: "gk-phu-nu.webp", caption: "Giấy khen của Chủ tịch UBND phường tặng Hội Liên hiệp Phụ nữ phường Yên Nghĩa." },
       { khoa: "doanThanhNien", file: "gk-doan-thanh-nien.webp", caption: "Giấy khen của Chủ tịch UBND phường tặng Đoàn Thanh niên phường Yên Nghĩa." },
+      // bản quét cũ của Hội Cựu chiến binh bị lệch, đã thay bằng bản quét riêng dưới đây
+    ],
+  },
+  {
+    // bản quét riêng, thẳng và rõ hơn — ảnh trong tệp này nằm ngược nên xoay 270°
+    pdf: "GK Hội CCB.pdf",
+    xoay: 270,
+    anh: [
       { khoa: "cuuChienBinh", file: "gk-cuu-chien-binh.webp", caption: "Giấy khen của Chủ tịch UBND phường tặng Hội Cựu chiến binh phường Yên Nghĩa." },
     ],
   },
 ];
 
+/**
+ * Tìm tệp trong thư mục gốc theo tên. Tên tiếng Việt có thể được lưu ở dạng tổ
+ * hợp dấu khác với chuỗi trong mã nguồn, nên so khớp sau khi chuẩn hoá.
+ */
+const chuan = (s) => s.normalize("NFC").toLowerCase();
+const dsTep = await readdir(join(ROOT, ".."));
+function timTep(ten) {
+  const f = dsTep.find((x) => chuan(x) === chuan(ten));
+  if (!f) throw new Error(`không thấy tệp "${ten}" trong ${join(ROOT, "..")}`);
+  return join(ROOT, "..", f);
+}
+
 const khen = {};
 for (const bo of QUET) {
-  const quet = anhTrongPdf(await readFile(join(ROOT, "..", bo.pdf)));
+  const quet = anhTrongPdf(await readFile(timTep(bo.pdf)));
   if (quet.length < bo.anh.length) throw new Error(`${bo.pdf}: chỉ tách được ${quet.length} bản quét`);
   for (const [i, meta] of bo.anh.entries()) {
     const r = await sharp(quet[i])
-      .rotate(90)
+      .rotate(bo.xoay ?? 90)
       .resize({ width: 1500, withoutEnlargement: true })
       .webp({ quality: 84 })
       .toFile(join(OUT, meta.file));
@@ -81,6 +101,13 @@ const hoiNghi = await goc
   .webp({ quality: 86 })
   .toFile(join(ROOT, "public", "tin", "hoi-nghi-15-ban.webp"));
 
+// Bản dải ngang cho bìa: bỏ bớt trần và mặt sàn, giữ trọn hàng người và phông
+// hội nghị, để ảnh kéo dài hết bề ngang trang bìa mà không chiếm nhiều chiều cao.
+const hoiNghiDai = await sharp(join(ROOT, "public", "tin", "hoi-nghi-15-ban.webp"))
+  .extract({ left: 0, top: 330, width: cGoc.width - CAT_TRAI, height: 700 })
+  .webp({ quality: 86 })
+  .toFile(join(ROOT, "public", "tin", "hoi-nghi-dai.webp"));
+
 /* ------------------------------------------------------- ảnh nền trang -- */
 
 const svg = (body) =>
@@ -88,12 +115,12 @@ const svg = (body) =>
     `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${body}</svg>`,
   );
 
-// Bìa: giấy xanh nhạt, khung kép xanh lá — theo đúng bản báo cáo phường đang in.
+// Bìa: giấy vàng nhạt, khung kép vàng đồng — theo yêu cầu của phường.
 await sharp(
   svg(`
-    <rect width="${W}" height="${H}" fill="#e9f3cf"/>
-    <rect x="46" y="46" width="${W - 92}" height="${H - 92}" fill="none" stroke="#2f7d32" stroke-width="2.5"/>
-    <rect x="54" y="54" width="${W - 108}" height="${H - 108}" fill="none" stroke="#2f7d32" stroke-width="1"/>
+    <rect width="${W}" height="${H}" fill="#fdf3d2"/>
+    <rect x="46" y="46" width="${W - 92}" height="${H - 92}" fill="none" stroke="#b8860b" stroke-width="2.5"/>
+    <rect x="54" y="54" width="${W - 108}" height="${H - 108}" fill="none" stroke="#b8860b" stroke-width="1"/>
   `),
 )
   .webp({ quality: 90 })
@@ -125,6 +152,12 @@ await writeFile(
         path: "/tin/hoi-nghi-15-ban.webp",
         w: hoiNghi.width,
         h: hoiNghi.height,
+        caption: "Hội nghị công bố quyết định thành lập 15 Ban Công tác Mặt trận ở 15 tổ dân phố.",
+      },
+      hoiNghiDai: {
+        path: "/tin/hoi-nghi-dai.webp",
+        w: hoiNghiDai.width,
+        h: hoiNghiDai.height,
         caption: "Hội nghị công bố quyết định thành lập 15 Ban Công tác Mặt trận ở 15 tổ dân phố.",
       },
       traoQuyetDinh: {

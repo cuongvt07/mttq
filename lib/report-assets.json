@@ -30,7 +30,7 @@
       "path": "/tin/khen/gk-cuu-chien-binh.webp",
       "caption": "Giấy khen của Chủ tịch UBND phường tặng Hội Cựu chiến binh phường Yên Nghĩa.",
       "w": 1500,
-      "h": 1029
+      "h": 1041
     },
     {
       "path": "/tin/khen/gk-doan-thanh-nien.webp",
@@ -49,6 +49,12 @@
     "path": "/tin/hoi-nghi-15-ban.webp",
     "w": 1410,
     "h": 1200,
+    "caption": "Hội nghị công bố quyết định thành lập 15 Ban Công tác Mặt trận ở 15 tổ dân phố."
+  },
+  "hoiNghiDai": {
+    "path": "/tin/hoi-nghi-dai.webp",
+    "w": 1410,
+    "h": 700,
     "caption": "Hội nghị công bố quyết định thành lập 15 Ban Công tác Mặt trận ở 15 tổ dân phố."
   },
   "traoQuyetDinh": {
