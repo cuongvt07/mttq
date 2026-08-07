@@ -31,6 +31,7 @@ const BG_BACK = "/tin/bg-bia-sau.webp";
 const EMBLEM = "/brand/emblem.webp";
 const GIAY_KHEN = "/tin/giay-khen.webp";
 const TRAO_QD_1 = "/tin/trao-quyet-dinh-1.webp";
+const GK_TUYEN_QUAN = "/tin/khen/gk-nhap-ngu.webp";
 const TRAO_QD_2 = "/tin/trao-quyet-dinh-2.webp";
 
 await moTrinhDuyet();
@@ -349,12 +350,13 @@ const cover = [
   text("SỐ 01  ·  THÁNG 7/2026", {
     size: 26, font: SANS, color: CREAM, bold: true, align: "center", x: M, y: 356, w: CW, lh: 1.3,
   }),
-  image(GIAY_KHEN, 232, { w: 330, x: M, y: 452, border: 4, borderColor: CREAM }),
-  image(TRAO_QD_1, 232, { w: 330, x: W - M - 330, y: 452, border: 4, borderColor: CREAM }),
+  image(GIAY_KHEN, 232, { w: 330, x: M, y: 452, border: 4, borderColor: CREAM, fit: "contain" }),
+  // bìa đặt hai Giấy khen khác nhau; ảnh hội nghị chỉ để một tấm ở dưới
+  image(GK_TUYEN_QUAN, 232, { w: 330, x: W - M - 330, y: 452, border: 4, borderColor: CREAM, fit: "contain" }),
   text("Giấy khen của Ban Chấp hành Đảng bộ phường", {
     size: 17, font: SANS, color: CREAM, italic: true, align: "center", x: M, y: 692, w: 330, lh: 1.3,
   }),
-  text("Hội nghị công bố quyết định thành lập", {
+  text("Giấy khen của Chủ tịch UBND phường Yên Nghĩa", {
     size: 17, font: SANS, color: CREAM, italic: true, align: "center", x: W - M - 330, y: 692, w: 330, lh: 1.3,
   }),
   image(TRAO_QD_2, 240, { w: CW, x: M, y: 754, border: 4, borderColor: CREAM }),
