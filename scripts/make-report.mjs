@@ -159,7 +159,13 @@ const phanCap = (s) =>
 /* ------------------------------------------------------------- các trang -- */
 
 /** Bìa 1 — theo bản phác của phường: tên cơ quan, tên báo cáo, ảnh khen thưởng. */
-const KHUNG_KHEN = { w: 206, h: 143 }; // ba khung bằng nhau, ảnh vào trọn khung
+
+// Bìa chỉ đặt Giấy khen của Uỷ ban MTTQ phường (Bằng khen của Thành phố vẫn
+// nằm ở phần hình ảnh khen thưởng cuối sách).
+const GK_BIA = anh.mttq.filter((a) => /Giấy khen/.test(a.caption));
+const KHUNG_KHEN = { w: 290, h: Math.round(290 * Math.max(...GK_BIA.map((a) => a.h / a.w))) };
+const KHE_KHEN = 40;
+const X_KHEN = Math.round(M + (CW - (KHUNG_KHEN.w * GK_BIA.length + KHE_KHEN * (GK_BIA.length - 1))) / 2);
 const bia = [
   image(EMBLEM, 92, { w: 92, x: (W - 92) / 2, y: 74, radius: 0, fit: "contain" }),
   text("UỶ BAN MẶT TRẬN TỔ QUỐC VIỆT NAM", {
@@ -175,29 +181,30 @@ const bia = [
     size: 23, bold: true, color: "#1f4d20", align: "center", x: M, y: 356, w: CW, lh: 1.5,
   }),
 
-  // ba khung khen thưởng của Uỷ ban MTTQ phường, cùng một cỡ, ảnh không bị cắt
-  ...anh.mttq.map((a, i) =>
+  // các khung khen thưởng cùng một cỡ, ảnh vào trọn khung, không bị cắt
+  ...GK_BIA.map((a, i) =>
     image(a.path, KHUNG_KHEN.h, {
       w: KHUNG_KHEN.w,
-      x: M + i * (KHUNG_KHEN.w + 31),
-      y: 490,
+      x: X_KHEN + i * (KHUNG_KHEN.w + KHE_KHEN),
+      y: 486,
       border: 3,
       borderColor: XANH,
       fit: "contain",
     }),
   ),
-  text("Giấy khen, Bằng khen tặng Uỷ ban MTTQ Việt Nam phường và các tổ chức thành viên", {
-    size: 17, font: SANS, italic: true, color: MUTED, align: "center", x: M, y: 648, w: CW, lh: 1.4,
+  text("Giấy khen tặng Uỷ ban Mặt trận Tổ quốc Việt Nam phường Yên Nghĩa", {
+    size: 17, font: SANS, italic: true, color: MUTED, align: "center", x: M, y: 496 + KHUNG_KHEN.h, w: CW, lh: 1.4,
   }),
 
   // khung đúng tỉ lệ ảnh nên không hở viền hai bên; bề rộng suy từ chiều cao
   // còn lại của bìa để ảnh không bao giờ chạm dòng ngày tháng
   ...(() => {
-    const cao = 316;
+    const y = 496 + KHUNG_KHEN.h + 42; // dưới dòng chú thích khen thưởng
+    const cao = 1030 - 14 - y; // chừa chỗ cho dòng ngày tháng
     const rong = Math.round(cao / (anh.hoiNghi.h / anh.hoiNghi.w));
     return [
       image(anh.hoiNghi.path, cao, {
-        w: rong, x: Math.round((W - rong) / 2), y: 692, border: 3, borderColor: XANH, fit: "contain",
+        w: rong, x: Math.round((W - rong) / 2), y, border: 3, borderColor: XANH, fit: "contain",
       }),
     ];
   })(),
@@ -231,7 +238,7 @@ const trangTen = [
 const items = [];
 
 // Phần đầu công văn: hai cột kiểu văn bản hành chính
-const CO_TRAI = 300;
+const CO_TRAI = 256; // cột phải còn 400px, vừa đúng một dòng "CỘNG HÒA … VIỆT NAM"
 items.push({
   type: "row",
   cols: [
