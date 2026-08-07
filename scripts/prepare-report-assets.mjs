@@ -69,6 +69,18 @@ for (const bo of QUET) {
   }
 }
 
+/* ------------------------------------------- ảnh hội nghị 15 Ban CTMT -- */
+
+// Bản dùng cho báo cáo: cắt bỏ phần mép trái (người đứng ngoài hàng trao quyết
+// định) theo yêu cầu của phường. Bản tin vẫn dùng ảnh gốc, không đụng tới.
+const CAT_TRAI = 190;
+const goc = sharp(join(ROOT, "public", "tin", "trao-quyet-dinh-2.webp"));
+const cGoc = await goc.metadata();
+const hoiNghi = await goc
+  .extract({ left: CAT_TRAI, top: 0, width: cGoc.width - CAT_TRAI, height: cGoc.height })
+  .webp({ quality: 86 })
+  .toFile(join(ROOT, "public", "tin", "hoi-nghi-15-ban.webp"));
+
 /* ------------------------------------------------------- ảnh nền trang -- */
 
 const svg = (body) =>
@@ -110,7 +122,9 @@ await writeFile(
       // các tổ chức thành viên — đúng thứ tự phường yêu cầu
       doanThe: [khen.phuNu, khen.cuuChienBinh, khen.doanThanhNien, khen.congDoan],
       hoiNghi: {
-        ...(await doAnh("/tin/trao-quyet-dinh-2.webp")),
+        path: "/tin/hoi-nghi-15-ban.webp",
+        w: hoiNghi.width,
+        h: hoiNghi.height,
         caption: "Hội nghị công bố quyết định thành lập 15 Ban Công tác Mặt trận ở 15 tổ dân phố.",
       },
       traoQuyetDinh: {
