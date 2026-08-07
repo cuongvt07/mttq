@@ -182,6 +182,29 @@ Dữ liệu: bảng `books` + `book_pages` (`elements` là JSONB) —
 Trong form tin/hoạt động, ô flip-book có sẵn dropdown chọn sách đã thiết kế
 (điền `/sach/<slug>`) hoặc dán link ngoài.
 
+### Sách sinh tự động từ file Word
+
+Ba cuốn dựng bằng script, dùng chung khung trang [scripts/lib/khung-sach.mjs](scripts/lib/khung-sach.mjs)
+(khổ A4 quy về bề rộng 800, đo chiều cao chữ thật bằng Chrome rồi xếp trang):
+
+| Sách | Sinh bằng | Ra file |
+|---|---|---|
+| Bản tin Mặt trận số 01 | `node scripts/fetch-articles.mjs && node scripts/make-bulletin.mjs` | `supabase/demo-book-tin.sql` |
+| Báo cáo 6 tháng đầu năm 2026 | `node scripts/make-report.mjs` | `supabase/book-bao-cao.sql` |
+| Bản tin Dân vận khéo | `py scripts/extract-danvankheo.py && node scripts/make-danvankheo.mjs` | `supabase/book-dan-van-kheo.sql` |
+
+Riêng bản tin Dân vận khéo lấy nội dung từ 9 file Word do phường cung cấp:
+[scripts/extract-danvankheo.py](scripts/extract-danvankheo.py) bóc chữ + ảnh (đọc được cả ảnh
+DrawingML lẫn ảnh VML của Word đời cũ), ghép chú thích đúng tấm ảnh đi kèm, xuất ảnh WebP vào
+`public/tin/dvk/` và dữ liệu bài vào `lib/danvankheo-articles.json`. Cần `python-docx` + `Pillow`.
+
+Nạp sách lên Supabase:
+
+```bash
+$env:SUPABASE_ACCESS_TOKEN="sbp_..."
+node scripts/apply-sql.mjs book-dan-van-kheo.sql
+```
+
 Khác đặc tả: dùng DOM tuyệt đối thay vì Fabric/Konva — để editor và viewer dùng CHUNG một
 component render (yêu cầu WYSIWYG ở mục 4 của đặc tả), chữ vẫn là text thật (nét, chọn được,
 SEO) thay vì bitmap canvas. Chưa làm: crop ảnh trong editor, align/distribute nhiều khối,
