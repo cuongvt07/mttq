@@ -190,10 +190,17 @@ const bia = [
     size: 17, font: SANS, italic: true, color: MUTED, align: "center", x: M, y: 648, w: CW, lh: 1.4,
   }),
 
-  // khung đúng tỉ lệ ảnh nên không hở viền hai bên
-  image(anh.hoiNghi.path, Math.round(430 * (anh.hoiNghi.h / anh.hoiNghi.w)), {
-    w: 430, x: (W - 430) / 2, y: 692, border: 3, borderColor: XANH, fit: "contain",
-  }),
+  // khung đúng tỉ lệ ảnh nên không hở viền hai bên; bề rộng suy từ chiều cao
+  // còn lại của bìa để ảnh không bao giờ chạm dòng ngày tháng
+  ...(() => {
+    const cao = 316;
+    const rong = Math.round(cao / (anh.hoiNghi.h / anh.hoiNghi.w));
+    return [
+      image(anh.hoiNghi.path, cao, {
+        w: rong, x: Math.round((W - rong) / 2), y: 692, border: 3, borderColor: XANH, fit: "contain",
+      }),
+    ];
+  })(),
   text("Yên Nghĩa, tháng 8 năm 2026", {
     size: 20, italic: true, color: "#1f4d20", align: "center", x: M, y: 1030, w: CW, lh: 1.4,
   }),
