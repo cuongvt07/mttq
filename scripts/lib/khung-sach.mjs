@@ -261,6 +261,21 @@ export async function wrapItem(img, side, content, wAnh = HALF, nguon) {
   let colH = await caoCot(cot);
   let [ben, duoi] = await splitToFit(content, HALF, colH);
 
+  // Ảnh chiếm nửa trang thì nửa còn lại BẮT BUỘC phải có chữ. Không cắt được ở
+  // cuối câu thì cắt ở cuối một từ, còn hơn để trống trơ nửa trang.
+  if (!ben) [ben, duoi] = await splitToFit(content, HALF, colH, false);
+
+  // Chữ vẫn không đủ để đứng cạnh ảnh (đoạn quá ngắn) → chuyển hẳn sang kiểu
+  // ảnh chạy hết bề ngang, chữ nằm dưới. Trả về nhiều mục rời để bộ xếp trang
+  // còn co ảnh và cắt chữ được, khỏi thành một khối cứng làm hở trang.
+  if (!ben) {
+    const ngang = anhCum(img, CW, nguon);
+    return [
+      { ...atom(...ngang), co: khungCo(img, ngang, 190, 700) },
+      ...doanKhoi(content, { gapCuoi: 14 }).map((b) => atom(b)),
+    ];
+  }
+
   // Chữ bên cạnh chỉ cắt được ở cuối câu nên thường ngắn hơn cột ảnh, để hở một
   // mảng trắng cạnh ảnh. Thu ảnh lại cho hai cột cao xấp xỉ nhau — cân đối hơn.
   for (let lan = 0; lan < 3; lan++) {
@@ -275,6 +290,7 @@ export async function wrapItem(img, side, content, wAnh = HALF, nguon) {
     cot = dung(wMoi);
     colH = await caoCot(cot);
     [ben, duoi] = await splitToFit(content, HALF, colH);
+    if (!ben) [ben, duoi] = await splitToFit(content, HALF, colH, false);
   }
 
   return {
@@ -403,6 +419,14 @@ export async function paginate(items, { continuedLabel } = {}) {
 
     anh.h = Math.max(min, Math.min(max, Math.round(BOTTOM - y - phuTro)));
     anh.w = Math.round(anh.h / ty); // giữ đúng tỉ lệ → ảnh vào trọn khung
+
+    // Ảnh không đi kèm chữ bên cạnh thì phải chạy hết bề ngang. Co hẹp lại rồi
+    // căn giữa sẽ thành "ảnh chiếm hơn nửa, nửa kia trống" — không được phép.
+    const W_TOI_THIEU = Math.round(CW * 0.86);
+    if (anh.w < W_TOI_THIEU) {
+      anh.w = W_TOI_THIEU;
+      anh.h = Math.round(anh.w * ty);
+    }
     anh.x = Math.round(M + (CW - anh.w) / 2);
     H.set(anh, anh.h);
     return anh.h + phuTro;
@@ -461,6 +485,10 @@ export async function paginate(items, { continuedLabel } = {}) {
         for (const wAnh of [HALF, HALF * 0.86, HALF * 0.74, HALF * 0.62, 150]) {
           const thu =
             wAnh === HALF ? it : await wrapItem(it.goc.img, it.side, it.goc.content, wAnh, it.goc.nguon);
+          if (thu.type !== "wrap") continue; // đã chuyển sang kiểu ảnh ngang
+          // thu nhỏ ảnh xong vẫn không được lệch cỡ với ảnh đã có trên trang
+          const anhThu = anhTrongMuc(thu);
+          if (daCo.length && anhThu.some((a) => a.w !== daCo[0].w || a.h !== daCo[0].h)) continue;
           if (y + thu.colH + 14 <= BOTTOM) { lot = thu; break; }
         }
         if (lot) {

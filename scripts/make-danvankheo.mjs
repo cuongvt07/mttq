@@ -133,9 +133,11 @@ async function articleAtoms(a, tyLe = 1) {
     } else {
       // gộp thêm một đoạn nữa để chữ có phần chảy tiếp bên dưới ảnh
       const noiDung = [doan, ...(paras.length && !laTieuMuc(paras[0]) ? [paras.shift()] : [])].join("\n\n");
-      out.push(
-        await wrapItem(imgs.shift(), kieu % 3 === 0 ? "left" : "right", noiDung, Math.min(HALF, co(HALF)), a.source),
+      // wrapItem có thể trả về nhiều mục khi phải chuyển sang kiểu ảnh ngang
+      const cum = await wrapItem(
+        imgs.shift(), kieu % 3 === 0 ? "left" : "right", noiDung, Math.min(HALF, co(HALF)), a.source,
       );
+      out.push(...[cum].flat());
     }
     kieu++;
   }
