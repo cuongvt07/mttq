@@ -175,8 +175,8 @@ const bia = [
     size: 23, bold: true, color: "#1f4d20", align: "center", x: M, y: 356, w: CW, lh: 1.5,
   }),
 
-  // ba khung khen thưởng cùng một cỡ, ảnh không bị cắt
-  ...[anh.giayKhenCu, anh.khen[2], anh.khen[1]].map((a, i) =>
+  // ba khung khen thưởng của Uỷ ban MTTQ phường, cùng một cỡ, ảnh không bị cắt
+  ...anh.mttq.map((a, i) =>
     image(a.path, KHUNG_KHEN.h, {
       w: KHUNG_KHEN.w,
       x: M + i * (KHUNG_KHEN.w + 31),
@@ -376,7 +376,10 @@ items.push(cumKhen);
 
 // Mọi bằng/giấy khen dùng chung một khung đúng bằng nhau (lấy theo tấm "cao"
 // nhất) nên hai tấm được phép nằm chung một trang, và không tấm nào bị cắt.
-const DS_KHEN = [anh.giayKhenCu, ...anh.khen];
+// Thứ tự: khen thưởng của Uỷ ban MTTQ phường trước, rồi các tổ chức thành viên
+// theo đúng thứ tự phường yêu cầu — Phụ nữ, Cựu chiến binh, Đoàn Thanh niên,
+// Công đoàn.
+const DS_KHEN = [...anh.mttq, ...anh.doanThe];
 const W_KHEN = 500;
 const H_KHEN = Math.round(W_KHEN * Math.max(...DS_KHEN.map((a) => a.h / a.w)));
 

@@ -35,23 +35,38 @@ function anhTrongPdf(buf) {
 }
 
 // Bản quét để ngang (chữ đọc từ dưới lên) → xoay 90° theo chiều kim đồng hồ.
-const TEN = [
-  { file: "gk-cong-doan.webp", caption: "Giấy khen của Chủ tịch UBND phường tặng Công đoàn phường Yên Nghĩa." },
-  { file: "gk-nhap-ngu.webp", caption: "Giấy khen của Chủ tịch UBND phường tặng Uỷ ban MTTQ Việt Nam phường về công tác tuyển quân năm 2026." },
-  { file: "bang-khen-bau-cu.webp", caption: "Bằng khen của Chủ tịch UBND thành phố Hà Nội tặng Uỷ ban MTTQ Việt Nam phường Yên Nghĩa về công tác bầu cử." },
+// Thứ tự trong mỗi mảng đúng thứ tự ảnh nằm trong tệp PDF tương ứng.
+const QUET = [
+  {
+    pdf: "CamScanner 6-8-26 15.36.pdf",
+    anh: [
+      { khoa: "congDoan", file: "gk-cong-doan.webp", caption: "Giấy khen của Chủ tịch UBND phường tặng Công đoàn phường Yên Nghĩa." },
+      { khoa: "nhapNgu", file: "gk-nhap-ngu.webp", caption: "Giấy khen của Chủ tịch UBND phường tặng Uỷ ban MTTQ Việt Nam phường về công tác tuyển chọn, gọi công dân nhập ngũ năm 2026." },
+      { khoa: "bangKhen", file: "bang-khen-bau-cu.webp", caption: "Bằng khen của Chủ tịch UBND thành phố Hà Nội tặng Uỷ ban MTTQ Việt Nam phường Yên Nghĩa về công tác bầu cử." },
+    ],
+  },
+  {
+    pdf: "CamScanner 7-8-26 10.40_1.pdf",
+    anh: [
+      { khoa: "phuNu", file: "gk-phu-nu.webp", caption: "Giấy khen của Chủ tịch UBND phường tặng Hội Liên hiệp Phụ nữ phường Yên Nghĩa." },
+      { khoa: "doanThanhNien", file: "gk-doan-thanh-nien.webp", caption: "Giấy khen của Chủ tịch UBND phường tặng Đoàn Thanh niên phường Yên Nghĩa." },
+      { khoa: "cuuChienBinh", file: "gk-cuu-chien-binh.webp", caption: "Giấy khen của Chủ tịch UBND phường tặng Hội Cựu chiến binh phường Yên Nghĩa." },
+    ],
+  },
 ];
 
-const quet = anhTrongPdf(await readFile(join(ROOT, "..", "CamScanner 6-8-26 15.36.pdf")));
-if (quet.length < TEN.length) throw new Error(`chỉ tách được ${quet.length} bản quét`);
-
-const anhKhen = [];
-for (const [i, meta] of TEN.entries()) {
-  const r = await sharp(quet[i])
-    .rotate(90)
-    .resize({ width: 1500, withoutEnlargement: true })
-    .webp({ quality: 84 })
-    .toFile(join(OUT, meta.file));
-  anhKhen.push({ path: `/tin/khen/${meta.file}`, caption: meta.caption, w: r.width, h: r.height });
+const khen = {};
+for (const bo of QUET) {
+  const quet = anhTrongPdf(await readFile(join(ROOT, "..", bo.pdf)));
+  if (quet.length < bo.anh.length) throw new Error(`${bo.pdf}: chỉ tách được ${quet.length} bản quét`);
+  for (const [i, meta] of bo.anh.entries()) {
+    const r = await sharp(quet[i])
+      .rotate(90)
+      .resize({ width: 1500, withoutEnlargement: true })
+      .webp({ quality: 84 })
+      .toFile(join(OUT, meta.file));
+    khen[meta.khoa] = { path: `/tin/khen/${meta.file}`, caption: meta.caption, w: r.width, h: r.height };
+  }
 }
 
 /* ------------------------------------------------------- ảnh nền trang -- */
@@ -83,11 +98,17 @@ await writeFile(
   join(ROOT, "lib", "report-assets.json"),
   JSON.stringify(
     {
-      khen: anhKhen,
-      giayKhenCu: {
-        ...(await doAnh("/tin/giay-khen.webp")),
-        caption: "Giấy khen của Ban Chấp hành Đảng bộ phường tặng Cơ quan Uỷ ban MTTQ phường.",
-      },
+      // khen thưởng của chính Uỷ ban MTTQ phường
+      mttq: [
+        {
+          ...(await doAnh("/tin/giay-khen.webp")),
+          caption: "Giấy khen của Ban Chấp hành Đảng bộ phường tặng Cơ quan Uỷ ban MTTQ phường.",
+        },
+        khen.bangKhen,
+        khen.nhapNgu,
+      ],
+      // các tổ chức thành viên — đúng thứ tự phường yêu cầu
+      doanThe: [khen.phuNu, khen.cuuChienBinh, khen.doanThanhNien, khen.congDoan],
       hoiNghi: {
         ...(await doAnh("/tin/trao-quyet-dinh-2.webp")),
         caption: "Hội nghị công bố quyết định thành lập 15 Ban Công tác Mặt trận ở 15 tổ dân phố.",
@@ -103,6 +124,6 @@ await writeFile(
 );
 
 console.log("· ảnh khen thưởng:");
-for (const a of anhKhen) console.log(`  ${a.path.padEnd(34)} ${a.w}x${a.h}`);
+for (const a of Object.values(khen)) console.log(`  ${a.path.padEnd(36)} ${a.w}x${a.h}`);
 console.log("· nền bìa: public/tin/bg-bc-bia.webp");
 console.log("→ lib/report-assets.json");

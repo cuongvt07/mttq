@@ -1,30 +1,50 @@
 {
-  "khen": [
+  "mttq": [
     {
-      "path": "/tin/khen/gk-cong-doan.webp",
-      "caption": "Giấy khen của Chủ tịch UBND phường tặng Công đoàn phường Yên Nghĩa.",
-      "w": 1500,
-      "h": 1039
-    },
-    {
-      "path": "/tin/khen/gk-nhap-ngu.webp",
-      "caption": "Giấy khen của Chủ tịch UBND phường tặng Uỷ ban MTTQ Việt Nam phường về công tác tuyển quân năm 2026.",
-      "w": 1500,
-      "h": 1020
+      "path": "/tin/giay-khen.webp",
+      "w": 1600,
+      "h": 1125,
+      "caption": "Giấy khen của Ban Chấp hành Đảng bộ phường tặng Cơ quan Uỷ ban MTTQ phường."
     },
     {
       "path": "/tin/khen/bang-khen-bau-cu.webp",
       "caption": "Bằng khen của Chủ tịch UBND thành phố Hà Nội tặng Uỷ ban MTTQ Việt Nam phường Yên Nghĩa về công tác bầu cử.",
       "w": 1500,
       "h": 1018
+    },
+    {
+      "path": "/tin/khen/gk-nhap-ngu.webp",
+      "caption": "Giấy khen của Chủ tịch UBND phường tặng Uỷ ban MTTQ Việt Nam phường về công tác tuyển chọn, gọi công dân nhập ngũ năm 2026.",
+      "w": 1500,
+      "h": 1020
     }
   ],
-  "giayKhenCu": {
-    "path": "/tin/giay-khen.webp",
-    "w": 1600,
-    "h": 1125,
-    "caption": "Giấy khen của Ban Chấp hành Đảng bộ phường tặng Cơ quan Uỷ ban MTTQ phường."
-  },
+  "doanThe": [
+    {
+      "path": "/tin/khen/gk-phu-nu.webp",
+      "caption": "Giấy khen của Chủ tịch UBND phường tặng Hội Liên hiệp Phụ nữ phường Yên Nghĩa.",
+      "w": 1500,
+      "h": 1022
+    },
+    {
+      "path": "/tin/khen/gk-cuu-chien-binh.webp",
+      "caption": "Giấy khen của Chủ tịch UBND phường tặng Hội Cựu chiến binh phường Yên Nghĩa.",
+      "w": 1500,
+      "h": 1029
+    },
+    {
+      "path": "/tin/khen/gk-doan-thanh-nien.webp",
+      "caption": "Giấy khen của Chủ tịch UBND phường tặng Đoàn Thanh niên phường Yên Nghĩa.",
+      "w": 1500,
+      "h": 1022
+    },
+    {
+      "path": "/tin/khen/gk-cong-doan.webp",
+      "caption": "Giấy khen của Chủ tịch UBND phường tặng Công đoàn phường Yên Nghĩa.",
+      "w": 1500,
+      "h": 1039
+    }
+  ],
   "hoiNghi": {
     "path": "/tin/trao-quyet-dinh-2.webp",
     "w": 1600,
