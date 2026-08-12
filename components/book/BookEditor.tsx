@@ -21,7 +21,7 @@ import { toast } from "@/components/admin/Toast";
 import BackgroundPicker from "./BackgroundPicker";
 import ChromePanel from "./ChromePanel";
 import ElementToolbar from "./ElementToolbar";
-import PageRenderer from "./PageRenderer";
+import PageRenderer, { mapLegacyFont } from "./PageRenderer";
 
 const GRID = 10;
 const snap = (v: number) => Math.round(v / GRID) * GRID;
@@ -912,7 +912,9 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
                   top: selected.y * scale,
                   width: selected.w * scale,
                   fontSize: selected.fontSize * scale,
-                  fontFamily: selected.fontFamily,
+                  // phải trùng font lúc render, nếu không ô đang gõ ngắt dòng
+                  // một kiểu mà kết quả lại ra kiểu khác
+                  fontFamily: mapLegacyFont(selected.fontFamily),
                   color: selected.color,
                   fontWeight: selected.bold ? 700 : 400,
                   fontStyle: selected.italic ? "italic" : "normal",

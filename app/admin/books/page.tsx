@@ -1,4 +1,5 @@
 import Link from "next/link";
+import CopyLinkButton from "@/components/admin/CopyLinkButton";
 import { getBooks } from "@/lib/book-queries";
 import { PAGE_RATIOS } from "@/lib/book-types";
 import { createBook, duplicateBook } from "./actions";
@@ -39,6 +40,7 @@ export default async function BooksPage() {
               <Link href={`/sach/${b.slug}`} target="_blank" className="adm-btn adm-btn-sm adm-btn-ghost">
                 Xem ↗
               </Link>
+              <CopyLinkButton path={`/sach/${b.slug}`} />
               <form action={duplicateBook}>
                 <input type="hidden" name="id" value={b.id} />
                 <button

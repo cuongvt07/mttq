@@ -1,0 +1,33 @@
+name: Keep-alive
+
+# Giữ ấm serverless function trên Vercel và chống Supabase free tier tự pause
+# (Supabase pause project sau 7 ngày không có query).
+#
+# Lambda Vercel ngủ sau ~10-15 phút vắng request, nên 5 phút/lần là đủ.
+# 5 phút cũng là chu kỳ nhỏ nhất GitHub Actions cho phép; lịch có thể trễ vài
+# phút khi hệ thống bận, vẫn nằm trong ngưỡng an toàn.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: # cho phép bấm chạy tay để kiểm tra
+
+# Nếu lần chạy trước còn treo thì huỷ, tránh chồng job.
+concurrency:
+  group: keepalive
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping site
+        run: |
+          for url in "https://mttq.vercel.app/" "https://mttq.vercel.app/api/ping"; do
+            code=$(curl -sS -o /dev/null -w '%{http_code} %{time_starttransfer}s' \
+                        --max-time 30 --retry 2 --retry-delay 5 \
+                        -H 'Cache-Control: no-cache' \
+                        -H 'User-Agent: mttq-keepalive/1.0 (github-actions)' \
+                        "$url") || { echo "FAIL $url"; exit 1; }
+            echo "$code  $url"
+          done

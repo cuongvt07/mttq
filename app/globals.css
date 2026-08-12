@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./fonts.css";
 
 @theme {
   --font-sans: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
@@ -121,10 +122,42 @@
    --------------------------------------------------------------------------- */
 @layer utilities {
   .stf__parent {
-    touch-action: pan-y;
+    /* pinch-zoom: trang sách phải thu cả tờ A4 vào bề ngang điện thoại nên chữ
+       thân bài chỉ còn khoảng 13px — cho phép chụm hai ngón phóng to để đọc.
+       pan-y giữ nguyên; vuốt ngang vẫn thuộc về trình xem để lật trang. */
+    touch-action: pan-y pinch-zoom;
   }
   .stf__wrapper,
   .stf__block {
     overflow: hidden;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Khung trang xem sách: khoá gọn đúng một màn hình, không bao giờ cuộn dọc.
+   --------------------------------------------------------------------------- */
+@layer components {
+  .book-shell {
+    /* svh = viewport NHỎ NHẤT, tức lúc thanh địa chỉ và thanh công cụ của trình
+       duyệt di động đều đang hiện. Đây mới là phần chắc chắn luôn nhìn thấy.
+       - 100vh sai: là viewport LỚN NHẤT, bỏ qua hai thanh đó => tràn đúng bằng
+         chiều cao chúng, sinh ra thanh cuộn dọc.
+       - 100dvh cũng không hợp: nó đổi liên tục khi người dùng vuốt làm ẩn/hiện
+         thanh, khiến sách co giãn nhấp nháy giữa lúc đang đọc.
+       Giữ 100vh ở trên làm fallback cho trình duyệt quá cũ không hiểu svh. */
+    height: 100vh;
+    height: 100svh;
+    /* Chừa vùng home indicator trên máy có khuyết đỉnh/viền cong. */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* body đang bật -webkit-font-smoothing: antialiased. Trên macOS/iOS thuộc
+     tính này tắt khử răng cưa theo điểm ảnh phụ, làm nét chữ mảnh và nhạt đi —
+     dễ thấy nhất với chữ có chân cỡ nhỏ như thân bài trong sách. Trả về auto
+     trong phạm vi trang sách để chữ dày và rõ hơn.
+     (Chrome trên Windows/Android vốn bỏ qua thuộc tính này nên không đổi gì.) */
+  .book-shell,
+  .book-shell * {
+    -webkit-font-smoothing: auto;
   }
 }

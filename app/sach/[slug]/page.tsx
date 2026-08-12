@@ -21,8 +21,12 @@ export default async function BookPage({ params }: { params: Promise<{ slug: str
   if (!book) notFound();
 
   return (
-    <main className="flex h-screen flex-col overflow-hidden overscroll-none bg-[#101a26] px-2 py-3 sm:px-4">
-      <h1 className="mb-3 text-center text-base font-bold text-white sm:text-lg">{book.title}</h1>
+    // fixed + inset-x-0/top-0: đưa hẳn khung sách ra khỏi luồng tài liệu nên
+    // <body> không còn gì để cuộn — chặn cuộn dọc tận gốc thay vì chỉ ẩn nó đi.
+    <main className="book-shell fixed inset-x-0 top-0 flex flex-col overflow-hidden overscroll-none bg-[#101a26] px-2 py-2 sm:px-4 sm:py-3">
+      <h1 className="mb-2 shrink-0 text-center text-sm font-bold text-white sm:mb-3 sm:text-lg">
+        {book.title}
+      </h1>
       <BookViewerClient book={book} />
     </main>
   );

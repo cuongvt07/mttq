@@ -12,6 +12,29 @@ import PageChromeView from "./PageChromeView";
  * Nội dung luôn dựng trong khung 800 × pageHeight rồi scale xuống kích thước hiển thị.
  */
 
+/**
+ * Đổi font hệ điều hành sang webfont tự host (khai báo ở app/fonts.css).
+ *
+ * Sách cũ đã lưu sẵn chuỗi font của Windows trong CSDL. Nếu để nguyên thì trên
+ * iOS/Android trình duyệt phải thay bằng font khác, số đo chữ đổi, đoạn văn ngắt
+ * thêm dòng và đè lên phần tử bên dưới. Ánh xạ ngay lúc render nên không phải
+ * đụng vào dữ liệu, và sách cũ lẫn sách mới đều hiện giống nhau trên mọi máy.
+ *
+ * Ba font Croscore (Tinos/Arimo/Cousine) trùng số đo tuyệt đối với
+ * Times New Roman/Arial/Courier New, nên bố cục cũ giữ nguyên từng dòng.
+ */
+const LEGACY_FONT_MAP: Record<string, string> = {
+  '"Segoe UI", system-ui, sans-serif': "'Source Sans 3', system-ui, sans-serif",
+  '"Times New Roman", Times, serif': "'Tinos', Times, serif",
+  "Arial, Helvetica, sans-serif": "'Arimo', Arial, sans-serif",
+  "Tahoma, Verdana, sans-serif": "'Source Sans 3', Tahoma, sans-serif",
+  '"Courier New", monospace': "'Cousine', 'Courier New', monospace",
+};
+
+export function mapLegacyFont(family: string): string {
+  return LEGACY_FONT_MAP[family] ?? family;
+}
+
 export function ElementView({ el }: { el: BookElement }) {
   const base: React.CSSProperties = {
     position: "absolute",
@@ -34,7 +57,7 @@ export function ElementView({ el }: { el: BookElement }) {
         style={{
           ...base,
           fontSize: el.fontSize,
-          fontFamily: el.fontFamily,
+          fontFamily: mapLegacyFont(el.fontFamily),
           color: el.color,
           fontWeight: el.bold ? 700 : 400,
           fontStyle: el.italic ? "italic" : "normal",
@@ -123,6 +146,10 @@ export default function PageRenderer({
           transform: `scale(${scale})`,
           transformOrigin: "top left",
           position: "relative",
+          // Đầu/chân trang và số trang không tự đặt font nên sẽ thừa kế chỗ này.
+          // Không đặt thì chúng rơi về font của body (Segoe UI — chỉ có trên
+          // Windows) và lại lệch giữa máy soạn với điện thoại.
+          fontFamily: mapLegacyFont('"Segoe UI", system-ui, sans-serif'),
           background: page.background,
           backgroundImage: page.background_image ? `url('${page.background_image}')` : undefined,
           backgroundSize: "cover",

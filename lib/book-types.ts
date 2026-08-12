@@ -146,12 +146,18 @@ export type Book = {
 
 export type BookWithPages = Book & { pages: BookPage[] };
 
+/**
+ * `value` giữ nguyên chuỗi font cũ vì đó là thứ đã lưu trong CSDL — đổi đi thì
+ * ô chọn font của sách cũ sẽ trống. Font thật lúc hiển thị do mapLegacyFont
+ * trong components/book/PageRenderer.tsx quyết định; nhãn dưới đây ghi tên
+ * webfont thực sự được dùng để người soạn không nhầm.
+ */
 export const FONT_FAMILIES = [
-  { label: "Mặc định (Segoe UI)", value: '"Segoe UI", system-ui, sans-serif' },
-  { label: "Có chân (Times New Roman)", value: '"Times New Roman", Times, serif' },
-  { label: "Arial", value: "Arial, Helvetica, sans-serif" },
-  { label: "Tahoma", value: "Tahoma, Verdana, sans-serif" },
-  { label: "Máy chữ", value: '"Courier New", monospace' },
+  { label: "Mặc định (Source Sans)", value: '"Segoe UI", system-ui, sans-serif' },
+  { label: "Có chân (Tinos ~ Times New Roman)", value: '"Times New Roman", Times, serif' },
+  { label: "Arimo (~ Arial)", value: "Arial, Helvetica, sans-serif" },
+  { label: "Source Sans (~ Tahoma)", value: "Tahoma, Verdana, sans-serif" },
+  { label: "Máy chữ (Cousine)", value: '"Courier New", monospace' },
 ];
 
 export function newTextElement(overrides: Partial<TextElement> = {}): TextElement {
