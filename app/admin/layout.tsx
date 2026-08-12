@@ -44,9 +44,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900">
+    // --adm-max dùng chung cho thanh trên và phần nội dung để hai bên luôn thẳng
+    // mép nhau. Trang nào đặt data-wide (trình thiết kế sách) thì nới ra.
+    <div className="min-h-screen bg-slate-100 text-slate-900 [--adm-max:1100px] has-[[data-wide]]:[--adm-max:1720px]">
       <header className="sticky top-0 z-30 bg-brand-deep text-sky-50 shadow-md">
-        <div className="mx-auto flex max-w-[1100px] flex-wrap items-center gap-1 px-5 py-2">
+        <div className="mx-auto flex max-w-[var(--adm-max)] flex-wrap items-center gap-1 px-5 py-2">
           <Emblem className="mr-2 size-7" />
           <span className="mr-3 text-lg font-extrabold">Quản trị nội dung</span>
 
@@ -78,7 +80,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1100px] px-5 pt-6 pb-16">{children}</div>
+      <div className="mx-auto w-full max-w-[var(--adm-max)] px-5 pt-6 pb-16">{children}</div>
       <ToastHost />
     </div>
   );

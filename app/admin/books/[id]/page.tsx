@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import BookEditor from "@/components/book/BookEditor";
 import ConfirmSubmit from "@/components/admin/ConfirmSubmit";
+import CopyLinkButton from "@/components/admin/CopyLinkButton";
 import { getBook } from "@/lib/book-queries";
 import { PAGE_RATIOS } from "@/lib/book-types";
 import { deleteBook, duplicateBook, updateBookMeta } from "../actions";
@@ -15,8 +16,9 @@ export default async function BookEditorPage({ params }: { params: Promise<{ id:
 
   return (
     <>
-      <div className="mb-3 flex flex-wrap items-center gap-3">
-        <div>
+      {/* data-wide: bảo layout admin nới khung rộng ra cho trang thiết kế */}
+      <div data-wide className="mb-3 flex flex-wrap items-center gap-3">
+        <div className="min-w-0">
           <h1 className="text-xl font-bold">{book.title}</h1>
           <p className="text-sm text-slate-500">
             <Link href="/admin/books" className="text-brand hover:underline">
@@ -27,6 +29,9 @@ export default async function BookEditorPage({ params }: { params: Promise<{ id:
               /sach/{book.slug} ↗
             </Link>
           </p>
+        </div>
+        <div className="ml-auto">
+          <CopyLinkButton path={`/sach/${book.slug}`} label="Chép link sách" />
         </div>
       </div>
 
@@ -42,9 +47,13 @@ export default async function BookEditorPage({ params }: { params: Promise<{ id:
               <input type="text" name="title" defaultValue={book.title} required className="adm-input" />
             </label>
             <label className="adm-field">
-              <span>Đường dẫn công khai (tự sinh)</span>
+              <span>Đường dẫn công khai (tự sinh theo tên)</span>
               <span className="flex h-10 items-center rounded-lg bg-slate-100 px-3 font-mono text-sm text-slate-500">
                 /sach/{book.slug}
+              </span>
+              <span className="mt-1 block text-[0.72rem] font-normal tracking-normal text-slate-400 normal-case">
+                Đổi tên sách thì đường dẫn tự đổi theo; trùng với sách khác sẽ tự thêm -2, -3…
+                <b className="text-amber-700"> Link cũ sẽ không còn dùng được.</b>
               </span>
             </label>
           </div>

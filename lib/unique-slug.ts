@@ -10,10 +10,18 @@ export async function uniqueSlug(
   table: "clusters" | "books",
   ten: string,
   macDinh = "muc",
+  /**
+   * Bỏ qua chính bản ghi này khi dò trùng. Cần khi đổi tên một mục đã tồn tại:
+   * không loại nó ra thì slug cũ của chính nó bị tính là "đã dùng" và tên
+   * không đổi cũng bị đẩy thành -2.
+   */
+  boQuaId?: string,
 ): Promise<string> {
   const goc = slugify(ten) || macDinh;
 
-  const { data } = await supabase.from(table).select("slug").like("slug", `${goc}%`);
+  let q = supabase.from(table).select("slug").like("slug", `${goc}%`);
+  if (boQuaId) q = q.neq("id", boQuaId);
+  const { data } = await q;
   const daDung = new Set(((data as { slug: string }[] | null) ?? []).map((r) => r.slug));
 
   if (!daDung.has(goc)) return goc;

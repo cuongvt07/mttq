@@ -15,6 +15,7 @@ import {
   type PageChrome,
   type TextElement,
 } from "@/lib/book-types";
+import { moTaNen, nenAnh } from "@/lib/image-optimize";
 import { createClient } from "@/utils/supabase/client";
 import { saveBookChrome, saveBookPages } from "@/app/admin/books/actions";
 import { toast } from "@/components/admin/Toast";
@@ -26,10 +27,56 @@ import PageRenderer, { mapLegacyFont } from "./PageRenderer";
 const GRID = 10;
 const snap = (v: number) => Math.round(v / GRID) * GRID;
 
+/** 8 điểm neo quanh khối, đặt tên theo hướng la bàn. */
+type Neo = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
+
+const NEO_ALL: Neo[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
+/** Khối chữ cao theo nội dung nên chỉ cho kéo ngang. */
+const NEO_CHU: Neo[] = ["w", "e"];
+
+const CON_TRO: Record<Neo, string> = {
+  nw: "nwse-resize",
+  n: "ns-resize",
+  ne: "nesw-resize",
+  e: "ew-resize",
+  se: "nwse-resize",
+  s: "ns-resize",
+  sw: "nesw-resize",
+  w: "ew-resize",
+};
+
 type Drag =
   | { mode: "move"; id: string; startX: number; startY: number; elX: number; elY: number }
-  | { mode: "resize"; id: string; startX: number; startY: number; w: number; h: number }
+  | {
+      mode: "resize";
+      id: string;
+      neo: Neo;
+      startX: number;
+      startY: number;
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      /** w/h lúc bắt đầu — ảnh giữ nguyên tỉ lệ này để không bị méo hay cắt */
+      tyLe: number;
+      giuTyLe: boolean;
+    }
   | { mode: "rotate"; id: string; cx: number; cy: number; start: number; rotation: number };
+
+/**
+ * Chọn màu nền tương phản với màu chữ để ô đang gõ lúc nào cũng đọc được.
+ * Chữ trắng trên nền trắng là lỗi hay gặp nhất khi soạn trên nền ảnh tối.
+ */
+function nenTuongPhan(mauChu: string): string {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(mauChu.trim());
+  if (!m) return "rgba(255,255,255,.94)";
+  const hex = m[1].length === 3 ? m[1].replace(/./g, (c) => c + c) : m[1];
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  // độ sáng tương đối theo WCAG
+  const f = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  const L = 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+  return L > 0.5 ? "rgba(24,32,44,.92)" : "rgba(255,255,255,.94)";
+}
 
 const O_NHO = "flex flex-col gap-1 text-[0.72rem] font-bold tracking-wide text-slate-500 uppercase";
 const O_INPUT =
@@ -61,7 +108,11 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const replaceIdRef = useRef<string | null>(null);
+  const replaceIdRef = useRef<string | null | "bg">(null);
+  /** vị trí bấm chuột xuống, để phân biệt "bấm chọn" với "kéo đi" */
+  const pressRef = useRef<{ id: string; x: number; y: number; daChon: boolean } | null>(null);
+  /** startEditing được khai báo bên dưới; giữ qua ref để listener pointerup gọi được */
+  const startEditingRef = useRef<((id: string) => void) | null>(null);
   /** bắt hai lần bấm liên tiếp lên cùng một khối (dblclick không đáng tin khi React dựng lại node) */
   const lastClick = useRef<{ id: string; t: number }>({ id: "", t: 0 });
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -76,13 +127,20 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => {
-      const avail = el.clientWidth - 24;
-      setCanvasWidth(Math.max(280, Math.min(avail, 660)));
-    });
+    const do_ = () => {
+      // Vừa cả bề ngang lẫn chiều cao chỗ trống: trang thiết kế cao hết mức có
+      // thể mà vẫn không đẩy nội dung tràn xuống dưới màn hình.
+      const availW = el.clientWidth - 24;
+      const availH = el.clientHeight - 24;
+      if (availW <= 0 || availH <= 0) return;
+      const theoCao = (availH * PAGE_WIDTH) / H;
+      setCanvasWidth(Math.max(240, Math.floor(Math.min(availW, theoCao))));
+    };
+    do_();
+    const ro = new ResizeObserver(do_);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [H]);
 
   /* --------------------------------------------------------------- lưu / autosave -- */
   /** quiet = tự lưu ngầm, không bắn toast (trạng thái góc phải đã báo rồi) */
@@ -252,17 +310,32 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
   };
 
   /* ------------------------------------------------------------------ tải ảnh -- */
-  const uploadImage = async (file: File, onDone: (url: string) => void) => {
+  /**
+   * Nén ngay trên máy rồi mới tải lên. Ảnh gốc từ điện thoại thường 3-8 MB mà
+   * trang sách chỉ rộng 800px, nên nén xuống WebP ~1600px vừa tải nhanh hơn hẳn
+   * vừa nhẹ cho người đọc. onDone nhận thêm kích thước thật để chèn ảnh đúng
+   * tỉ lệ gốc, không bị cắt.
+   */
+  const uploadImage = async (
+    file: File,
+    onDone: (url: string, kt: { width: number; height: number }) => void,
+  ) => {
     setStatus("saving");
     try {
+      const nen = await nenAnh(file);
       const supabase = createClient();
-      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const ext = nen.file.name.split(".").pop()?.toLowerCase() || "webp";
       const path = `books/${book.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error } = await supabase.storage.from("media").upload(path, file);
+      const { error } = await supabase.storage
+        .from("media")
+        .upload(path, nen.file, { contentType: nen.file.type, cacheControl: "31536000" });
       if (error) throw error;
-      onDone(supabase.storage.from("media").getPublicUrl(path).data.publicUrl);
+      onDone(supabase.storage.from("media").getPublicUrl(path).data.publicUrl, {
+        width: nen.width,
+        height: nen.height,
+      });
       setStatus("idle");
-      toast("Đã tải ảnh lên");
+      toast(`Đã tải ảnh lên · ${moTaNen(nen)}`);
     } catch (err) {
       setStatus("error");
       const loi = err instanceof Error ? err.message : "Tải ảnh thất bại";
@@ -271,10 +344,31 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
     }
   };
 
-  /** mở hộp chọn ảnh — dùng cho cả "thêm ảnh" và "đổi ảnh" */
-  const pickImage = (replaceId: string | null) => {
+  /**
+   * mở hộp chọn ảnh.
+   *   null      → thêm ảnh mới vào trang
+   *   "bg"      → dùng làm nền cho trang hiện tại
+   *   <id khối> → thay ảnh của khối đó
+   */
+  const pickImage = (replaceId: string | null | "bg") => {
     replaceIdRef.current = replaceId;
     fileRef.current?.click();
+  };
+
+  /** Chèn ảnh mới đúng tỉ lệ gốc, co vừa bề ngang trang nếu quá to. */
+  const chenAnhTheoTyLe = (url: string, kt: { width: number; height: number }) => {
+    const rong = Math.min(kt.width || 400, PAGE_WIDTH - 160);
+    const cao = kt.width ? Math.round((rong * kt.height) / kt.width) : 300;
+    addElement(
+      newImageElement(url, {
+        w: Math.round(rong),
+        h: cao,
+        x: Math.round((PAGE_WIDTH - rong) / 2),
+        y: 120,
+        // contain: thà chừa viền còn hơn cắt mất nội dung ảnh
+        fit: "contain",
+      }),
+    );
   };
 
   /* ------------------------------------------------------------------ kéo thả -- */
@@ -284,6 +378,23 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
   };
 
   useEffect(() => {
+    // Chuột bắn ra tới hơn 100 sự kiện/giây, mà mỗi lần xử lý là dựng lại cả
+    // trang. Gộp về đúng một lần mỗi khung hình cho thao tác kéo mượt hẳn.
+    let rafId = 0;
+    let choXuLy: PointerEvent | null = null;
+
+    const onMoveRaw = (e: PointerEvent) => {
+      if (!dragRef.current) return;
+      choXuLy = e;
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        const ev = choXuLy;
+        choXuLy = null;
+        if (ev) onMove(ev);
+      });
+    };
+
     const onMove = (e: PointerEvent) => {
       const d = dragRef.current;
       if (!d || !canvasRef.current) return;
@@ -301,12 +412,51 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
           false,
         );
       } else if (d.mode === "resize") {
-        const nw = Math.max(40, d.w + (p.x - d.startX));
-        const nh = Math.max(30, d.h + (p.y - d.startY));
+        const dx = p.x - d.startX;
+        const dy = p.y - d.startY;
         const el = pages[pageIndex].elements.find((x) => x.id === d.id);
+        const laChu = el?.type === "text";
+
+        // Kéo cạnh nào thì cạnh đối diện đứng yên.
+        let x = d.x;
+        let y = d.y;
+        let w = d.w;
+        let h = d.h;
+        if (d.neo.includes("e")) w = d.w + dx;
+        if (d.neo.includes("w")) {
+          w = d.w - dx;
+          x = d.x + dx;
+        }
+        if (d.neo.includes("s")) h = d.h + dy;
+        if (d.neo.includes("n")) {
+          h = d.h - dy;
+          y = d.y + dy;
+        }
+
+        w = Math.max(24, w);
+        h = Math.max(20, h);
+
+        if (d.giuTyLe) {
+          // Ảnh luôn giữ đúng tỉ lệ gốc. Cạnh nào người dùng kéo thì cạnh đó
+          // dẫn, cạnh kia suy ra — nhờ vậy ảnh không bao giờ bị bóp méo.
+          const ngang = d.neo === "e" || d.neo === "w";
+          const doc = d.neo === "n" || d.neo === "s";
+          if (ngang) h = w / d.tyLe;
+          else if (doc) w = h * d.tyLe;
+          else if (Math.abs(dx) > Math.abs(dy)) h = w / d.tyLe;
+          else w = h * d.tyLe;
+
+          // giữ nguyên mép đối diện sau khi đã ép tỉ lệ
+          if (d.neo.includes("w")) x = d.x + (d.w - w);
+          if (d.neo.includes("n")) y = d.y + (d.h - h);
+        }
+
+        const lam = (v: number) => (snapOn ? snap(v) : Math.round(v));
         patchElement(
           d.id,
-          el && el.type !== "text" ? { w: Math.round(nw), h: Math.round(nh) } : { w: Math.round(nw) },
+          laChu
+            ? { x: lam(x), w: lam(w) } // khối chữ cao theo nội dung
+            : { x: lam(x), y: lam(y), w: lam(w), h: lam(h) },
           false,
         );
       } else if (d.mode === "rotate") {
@@ -317,7 +467,25 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
       }
     };
 
-    const onUp = () => {
+    const onUp = (e: PointerEvent) => {
+      // Bấm rồi thả gần như tại chỗ lên một khối chữ ĐANG được chọn = muốn sửa
+      // nội dung. Nhờ xét ở pointerup và đo quãng di chuyển nên vẫn kéo khối
+      // bình thường được, không phải bấm hai lần thật nhanh như trước.
+      const press = pressRef.current;
+      pressRef.current = null;
+      if (press && press.daChon) {
+        const xa = Math.hypot(e.clientX - press.x, e.clientY - press.y);
+        if (xa < 5) {
+          const el = pages[pageIndex]?.elements.find((x) => x.id === press.id);
+          if (el?.type === "text") {
+            dragRef.current = null;
+            dragSnapshot.current = null;
+            startEditingRef.current?.(press.id);
+            return;
+          }
+        }
+      }
+
       if (!dragRef.current) return;
       dragRef.current = null;
       if (dragSnapshot.current) {
@@ -328,11 +496,14 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
       scheduleSave(pages);
     };
 
-    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointermove", onMoveRaw);
     window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
     return () => {
-      window.removeEventListener("pointermove", onMove);
+      if (rafId) cancelAnimationFrame(rafId);
+      window.removeEventListener("pointermove", onMoveRaw);
       window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
     };
   }, [patchElement, pages, pageIndex, scale, snapOn, scheduleSave]);
 
@@ -349,6 +520,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
     setSelectedId(id);
     setEditingId(id);
   };
+  startEditingRef.current = startEditing;
 
   useEffect(() => {
     if (!editingId) return;
@@ -479,8 +651,176 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
       }
     : null;
 
+  /** Các lớp phủ lên trang: vùng bắt sự kiện, 8 điểm neo, nút xoay, ô gõ chữ. */
+  const canvasLayers = (
+    <>
+      <div className="absolute inset-0">
+        {page.elements.map((el) => {
+          const isSel = el.id === selectedId;
+          const h = el.type !== "text" ? el.h : textHeights[el.id];
+          return (
+            <div
+              key={el.id}
+              onPointerDown={(e) => {
+                const daChon = selectedId === el.id;
+                setSelectedId(el.id);
+                if (editingId && editingId !== el.id) stopEditing();
+
+                // Ghi lại điểm bấm; pointerup mới quyết định đây là bấm để sửa
+                // hay chỉ là bắt đầu kéo.
+                pressRef.current = { id: el.id, x: e.clientX, y: e.clientY, daChon };
+
+                // Ảnh: bấm lần nữa vào ảnh đang chọn thì mở hộp đổi ảnh.
+                if (daChon && el.type === "image") {
+                  const now = Date.now();
+                  const nhanh = lastClick.current.id === el.id && now - lastClick.current.t < 800;
+                  lastClick.current = { id: el.id, t: now };
+                  if (nhanh) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    pressRef.current = null;
+                    pickImage(el.id);
+                    return;
+                  }
+                }
+                lastClick.current = { id: el.id, t: Date.now() };
+
+                startDrag(e, { mode: "move", id: el.id, elX: el.x, elY: el.y } as Drag);
+              }}
+              style={{
+                position: "absolute",
+                left: el.x * scale,
+                top: el.y * scale,
+                width: el.w * scale,
+                height: h ? h * scale : 24 * scale,
+                transform: el.rotation ? `rotate(${el.rotation}deg)` : undefined,
+                transformOrigin: "center center",
+                cursor: editingId === el.id ? "text" : "move",
+                touchAction: "none",
+                outline: isSel ? "2px solid #1667b8" : "1px dashed rgba(22,103,184,.30)",
+              }}
+            />
+          );
+        })}
+      </div>
+
+      {/* nút xoay + 8 điểm neo của khối đang chọn */}
+      {selected && selBox && !editingId ? (
+        <>
+          <span
+            onPointerDown={(e) => {
+              const rect = canvasRef.current!.getBoundingClientRect();
+              const cx = selected.x + selected.w / 2;
+              const cy =
+                selected.y +
+                (selected.type !== "text" ? selected.h : (textHeights[selected.id] ?? 40)) / 2;
+              startDrag(e, {
+                mode: "rotate",
+                id: selected.id,
+                cx,
+                cy,
+                rotation: selected.rotation,
+                start:
+                  (Math.atan2(
+                    (e.clientY - rect.top) / scale - cy,
+                    (e.clientX - rect.left) / scale - cx,
+                  ) *
+                    180) /
+                  Math.PI,
+              } as unknown as Drag);
+            }}
+            title="Kéo để xoay"
+            className="absolute z-20 size-5 cursor-grab rounded-full border-2 border-white bg-brand shadow-md transition-transform hover:scale-110"
+            style={{
+              left: selBox.left + selBox.width / 2 - 10,
+              top: selBox.top - 30,
+              touchAction: "none",
+            }}
+          />
+          {(selected.type === "text" ? NEO_CHU : NEO_ALL).map((neo) => {
+            const cao = selected.type !== "text" ? selected.h : (textHeights[selected.id] ?? 40);
+            // vị trí điểm neo theo hướng la bàn, quy về 0 / 0.5 / 1
+            const fx = neo.includes("w") ? 0 : neo.includes("e") ? 1 : 0.5;
+            const fy = neo.includes("n") ? 0 : neo.includes("s") ? 1 : 0.5;
+            return (
+              <span
+                key={neo}
+                onPointerDown={(e) =>
+                  startDrag(e, {
+                    mode: "resize",
+                    id: selected.id,
+                    neo,
+                    x: selected.x,
+                    y: selected.y,
+                    w: selected.w,
+                    h: cao,
+                    tyLe: cao > 0 ? selected.w / cao : 1,
+                    // ảnh giữ tỉ lệ gốc để không bị méo hay cắt
+                    giuTyLe: selected.type === "image",
+                  } as Drag)
+                }
+                title="Kéo để đổi kích thước"
+                className="absolute z-20 size-3.5 rounded-[3px] border-2 border-white bg-brand shadow-md transition-transform hover:scale-125"
+                style={{
+                  left: selBox.left + selBox.width * fx - 7,
+                  top: selBox.top + selBox.height * fy - 7,
+                  cursor: CON_TRO[neo],
+                  touchAction: "none",
+                }}
+              />
+            );
+          })}
+        </>
+      ) : null}
+
+      {/* gõ chữ ngay trên trang */}
+      {editingId && selected?.type === "text" ? (
+        <div
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning
+          onPointerDown={(e) => e.stopPropagation()}
+          onBlur={stopEditing}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") (e.target as HTMLElement).blur();
+          }}
+          style={{
+            position: "absolute",
+            zIndex: 25,
+            left: selected.x * scale,
+            top: selected.y * scale,
+            width: selected.w * scale,
+            fontSize: selected.fontSize * scale,
+            // phải trùng font lúc render, nếu không ô đang gõ ngắt dòng một kiểu
+            // mà kết quả lại ra kiểu khác
+            fontFamily: mapLegacyFont(selected.fontFamily),
+            color: selected.color,
+            fontWeight: selected.bold ? 700 : 400,
+            fontStyle: selected.italic ? "italic" : "normal",
+            textAlign: selected.align,
+            lineHeight: selected.lineHeight,
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            // nền chọn theo độ sáng của màu chữ — chữ trắng trên nền ảnh tối
+            // trước đây gõ vào là mất hút vì nền ô luôn màu trắng
+            background: nenTuongPhan(selected.color),
+            outline: "2px solid #1667b8",
+            borderRadius: 2,
+            padding: 0,
+          }}
+        />
+      ) : null}
+    </>
+  );
+
   return (
-    <div className="grid gap-4 lg:grid-cols-[168px_minmax(0,1fr)]">
+    // [danh sách trang][khung thiết kế][bảng thuộc tính]
+    // Khoá chiều cao theo màn hình rồi cho mỗi cột tự cuộn bên trong, nhờ vậy
+    // khung thiết kế luôn cao hết mức và cả trang không phải cuộn dọc.
+    <div
+      data-wide
+      className="grid gap-3 xl:h-[calc(100svh-200px)] xl:min-h-[520px] xl:grid-cols-[176px_minmax(0,1fr)_340px]"
+    >
       <input
         ref={fileRef}
         type="file"
@@ -488,26 +828,44 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
-          const id = replaceIdRef.current;
+          const dich = replaceIdRef.current;
           if (f) {
-            void uploadImage(f, (url) =>
-              id ? patchElement(id, { src: url }) : addElement(newImageElement(url)),
-            );
+            void uploadImage(f, (url, kt) => {
+              if (dich === "bg") {
+                // Nền phủ kín khung trang: PageRenderer đã đặt background-size:
+                // cover + position: center nên ảnh luôn căn khít, không lộ mép.
+                commit((prev) =>
+                  prev.map((p, i) => (i === pageIndex ? { ...p, background_image: url } : p)),
+                );
+                toast("Đã dùng ảnh làm nền trang");
+              } else if (dich) {
+                // Đổi ảnh của khối sẵn có: cập nhật luôn chiều cao theo tỉ lệ
+                // ảnh mới để khỏi bị bóp méo so với ảnh cũ.
+                const cu = page.elements.find((x) => x.id === dich);
+                const w = cu && cu.type === "image" ? cu.w : 400;
+                patchElement(dich, {
+                  src: url,
+                  ...(kt.width ? { h: Math.round((w * kt.height) / kt.width) } : {}),
+                });
+              } else {
+                chenAnhTheoTyLe(url, kt);
+              }
+            });
           }
           e.target.value = "";
         }}
       />
 
       {/* ------------------------------------------------------------ danh sách trang */}
-      <aside className="order-2 lg:order-1">
-        <div className="mb-2 flex items-center gap-2">
+      <aside className="order-2 flex min-h-0 flex-col xl:order-1">
+        <div className="mb-2 flex shrink-0 items-center gap-2">
           <b className="text-sm">Trang ({pages.length})</b>
           <button type="button" onClick={addPage} className="adm-btn adm-btn-sm ml-auto">
             + Thêm
           </button>
         </div>
 
-        <div className="flex gap-2 overflow-x-auto lg:max-h-[62vh] lg:flex-col lg:overflow-x-visible lg:overflow-y-auto">
+        <div className="flex flex-1 gap-2 overflow-x-auto xl:min-h-0 xl:flex-col xl:overflow-x-visible xl:overflow-y-auto">
           {pages.map((p, i) => (
             <button
               key={p.id}
@@ -536,7 +894,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
           ))}
         </div>
 
-        <div className="mt-2 grid grid-cols-2 gap-1.5">
+        <div className="mt-2 grid shrink-0 grid-cols-2 gap-1.5">
           <button type="button" onClick={() => movePage(-1)} className="adm-btn adm-btn-sm adm-btn-ghost">
             ↑ Lên
           </button>
@@ -553,9 +911,9 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
       </aside>
 
       {/* -------------------------------------------------------------------- canvas */}
-      <div ref={wrapRef} className="order-1 lg:order-2">
+      <div className="order-1 flex min-w-0 min-h-0 flex-col xl:order-2">
         {/* hàng nút chính */}
-        <div className="mb-2 flex flex-wrap items-center gap-2">
+        <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
           <button type="button" onClick={() => addElement(newTextElement())} className={NUT}>
             ➕ Thêm chữ
           </button>
@@ -591,7 +949,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
 
         {/* thanh công cụ của khối đang chọn */}
         {selected ? (
-          <div className="mb-2 h-[60px]">
+          <div className="mb-2 h-[60px] shrink-0">
             <ElementToolbar
               el={selected}
               onChange={(patch) => patchElement(selected.id, patch)}
@@ -603,17 +961,68 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
             />
           </div>
         ) : (
-          <div className="mb-2 h-[60px]" aria-hidden />
+          <div className="mb-2 h-[60px] shrink-0" aria-hidden />
         )}
 
+        <div
+          ref={wrapRef}
+          className="flex min-h-[320px] flex-1 items-center justify-center overflow-hidden rounded-xl bg-slate-200 p-3"
+        >
+          <div
+            ref={canvasRef}
+            className="relative shadow-lg"
+            onPointerDown={() => {
+              if (editingId) stopEditing();
+              setSelectedId(null);
+            }}
+          >
+            <PageRenderer
+              page={page}
+              ratio={book.page_ratio}
+              width={canvasWidth}
+              chrome={chrome}
+              pageNumber={pageIndex + 1}
+              totalPages={pages.length}
+            />
+            {canvasLayers}
+          </div>
+        </div>
+
+        <p className="mt-1.5 shrink-0 text-center text-xs text-slate-500">
+          Trang {pageIndex + 1}/{pages.length} · khung {PAGE_WIDTH}×{H} · bấm chọn rồi bấm lần nữa
+          vào khối chữ để sửa · kéo 8 ô vuông để đổi cỡ · Delete để xoá
+        </p>
+      </div>
+
+      {/* --------------------------------------------------------- bảng thuộc tính */}
+      <aside className="order-3 flex min-h-0 flex-col gap-2 overflow-y-auto xl:pr-0.5">
         {/* ------------------------------------------------ chọn nền trang bằng mẫu */}
-        <details className="group mb-2 rounded-xl border border-slate-200 bg-white" open>
+        <details className="group shrink-0 rounded-xl border border-slate-200 bg-white" open>
           <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-sm font-bold text-slate-700">
             <span className="transition group-open:rotate-90">▸</span>
             Nền trang {pageIndex + 1}
-            <span className="font-normal text-slate-400">— bấm chọn mẫu</span>
           </summary>
           <div className="border-t border-slate-200 px-3 py-2.5">
+            <button
+              type="button"
+              onClick={() => pickImage("bg")}
+              className="adm-btn adm-btn-sm adm-btn-ghost mb-2 w-full justify-center"
+            >
+              ⬆️ Tải ảnh làm nền trang này
+            </button>
+            {page.background_image ? (
+              <button
+                type="button"
+                onClick={() =>
+                  commit((prev) =>
+                    prev.map((p, i) => (i === pageIndex ? { ...p, background_image: null } : p)),
+                  )
+                }
+                className="adm-btn adm-btn-sm adm-btn-ghost mb-2 w-full justify-center"
+              >
+                ✕ Bỏ ảnh nền
+              </button>
+            ) : null}
             <BackgroundPicker
               current={page.background_image}
               onPick={(t) => {
@@ -634,18 +1043,15 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
           </div>
         </details>
 
-        {/* ---------------------------------------- tuỳ chọn chi tiết, thu gọn ở trên */}
-        <details className="group mb-2 rounded-xl border border-slate-200 bg-white">
+        {/* --------------------------------------------- thuộc tính khối đang chọn */}
+        <details className="group shrink-0 rounded-xl border border-slate-200 bg-white" open>
           <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-sm font-bold text-slate-700">
             <span className="transition group-open:rotate-90">▸</span>
-            Tuỳ chọn chi tiết
-            <span className="font-normal text-slate-400">
-              (phông chữ, kích thước, vị trí, đầu/chân trang)
-            </span>
+            Thuộc tính khối
           </summary>
 
-          {/* một hàng ngang, cuộn khi hẹp — không chiếm nhiều chiều cao */}
-          <div className="flex max-h-44 flex-wrap items-end gap-x-4 gap-y-2 overflow-y-auto border-t border-slate-200 px-3 py-2.5">
+          {/* Cột hẹp nên xếp dọc, không còn phải nhồi thành một hàng ngang */}
+          <div className="flex flex-wrap items-end gap-x-3 gap-y-2.5 border-t border-slate-200 px-3 py-2.5">
             {selected?.type === "text" ? (
               <>
                 <label className={`${O_NHO} min-w-44`}>
@@ -779,164 +1185,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
           ) : null}
         </details>
 
-        <div className="flex justify-center rounded-xl bg-slate-200 p-3">
-          <div
-            ref={canvasRef}
-            className="relative shadow-lg"
-            onPointerDown={() => {
-              if (editingId) stopEditing();
-              setSelectedId(null);
-            }}
-          >
-            <PageRenderer
-              page={page}
-              ratio={book.page_ratio}
-              width={canvasWidth}
-              chrome={chrome}
-              pageNumber={pageIndex + 1}
-              totalPages={pages.length}
-            />
-
-            {/* lớp bắt sự kiện: chọn, kéo, đổi cỡ, xoay */}
-            <div className="absolute inset-0">
-              {page.elements.map((el) => {
-                const isSel = el.id === selectedId;
-                const h = el.type !== "text" ? el.h : textHeights[el.id];
-                return (
-                  <div
-                    key={el.id}
-                    onPointerDown={(e) => {
-                      setSelectedId(el.id);
-                      if (editingId && editingId !== el.id) stopEditing();
-
-                      const now = Date.now();
-                      const nhanh = lastClick.current.id === el.id && now - lastClick.current.t < 800;
-                      lastClick.current = { id: el.id, t: now };
-
-                      if (nhanh) {
-                        // chặn focus mặc định của trình duyệt, nếu không ô soạn
-                        // thảo vừa hiện ra đã bị blur ngay
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (el.type === "text") startEditing(el.id);
-                        else pickImage(el.id);
-                        return;
-                      }
-
-                      startDrag(e, { mode: "move", id: el.id, elX: el.x, elY: el.y } as Drag);
-                    }}
-                    style={{
-                      position: "absolute",
-                      left: el.x * scale,
-                      top: el.y * scale,
-                      width: el.w * scale,
-                      height: h ? h * scale : 24 * scale,
-                      transform: el.rotation ? `rotate(${el.rotation}deg)` : undefined,
-                      transformOrigin: "center center",
-                      cursor: editingId === el.id ? "text" : "move",
-                      outline: isSel
-                        ? "2px solid #1667b8"
-                        : "1px dashed rgba(22,103,184,.30)",
-                    }}
-                  />
-                );
-              })}
-            </div>
-
-            {/* tay cầm đổi cỡ / xoay của khối đang chọn */}
-            {selected && selBox && !editingId ? (
-              <>
-                <span
-                  onPointerDown={(e) => {
-                    const rect = canvasRef.current!.getBoundingClientRect();
-                    const cx = selected.x + selected.w / 2;
-                    const cy =
-                      selected.y +
-                      (selected.type !== "text" ? selected.h : (textHeights[selected.id] ?? 40)) / 2;
-                    startDrag(e, {
-                      mode: "rotate",
-                      id: selected.id,
-                      cx,
-                      cy,
-                      rotation: selected.rotation,
-                      start:
-                        (Math.atan2(
-                          (e.clientY - rect.top) / scale - cy,
-                          (e.clientX - rect.left) / scale - cx,
-                        ) *
-                          180) /
-                        Math.PI,
-                    } as unknown as Drag);
-                  }}
-                  title="Kéo để xoay"
-                  className="absolute z-20 size-6 cursor-grab rounded-full border-2 border-white bg-brand shadow"
-                  style={{
-                    left: selBox.left + selBox.width / 2 - 12,
-                    top: selBox.top - 34,
-                  }}
-                />
-                <span
-                  onPointerDown={(e) =>
-                    startDrag(e, {
-                      mode: "resize",
-                      id: selected.id,
-                      w: selected.w,
-                      h: selected.type !== "text" ? selected.h : 0,
-                    } as Drag)
-                  }
-                  title="Kéo để đổi kích thước"
-                  className="absolute z-20 size-6 cursor-se-resize rounded-md border-2 border-white bg-brand shadow"
-                  style={{
-                    left: selBox.left + selBox.width - 12,
-                    top: selBox.top + selBox.height - 12,
-                  }}
-                />
-              </>
-            ) : null}
-
-            {/* gõ chữ ngay trên trang */}
-            {editingId && selected?.type === "text" ? (
-              <div
-                ref={editorRef}
-                contentEditable
-                suppressContentEditableWarning
-                onPointerDown={(e) => e.stopPropagation()}
-                onBlur={stopEditing}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") (e.target as HTMLElement).blur();
-                }}
-                style={{
-                  position: "absolute",
-                  zIndex: 25,
-                  left: selected.x * scale,
-                  top: selected.y * scale,
-                  width: selected.w * scale,
-                  fontSize: selected.fontSize * scale,
-                  // phải trùng font lúc render, nếu không ô đang gõ ngắt dòng
-                  // một kiểu mà kết quả lại ra kiểu khác
-                  fontFamily: mapLegacyFont(selected.fontFamily),
-                  color: selected.color,
-                  fontWeight: selected.bold ? 700 : 400,
-                  fontStyle: selected.italic ? "italic" : "normal",
-                  textAlign: selected.align,
-                  lineHeight: selected.lineHeight,
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  background: "rgba(255,255,255,.92)",
-                  outline: "2px solid #1667b8",
-                  padding: 0,
-                }}
-              />
-            ) : null}
-          </div>
-        </div>
-
-        <p className="mt-2 text-center text-xs text-slate-500">
-          Trang {pageIndex + 1}/{pages.length} · khung {PAGE_WIDTH}×{H} · kéo để di chuyển, kéo ô
-          vuông xanh để đổi cỡ, kéo chấm tròn để xoay · phím mũi tên dịch từng chút · Delete để xoá
-        </p>
-
-      </div>
+      </aside>
     </div>
   );
 }

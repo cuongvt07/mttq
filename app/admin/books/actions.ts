@@ -33,10 +33,24 @@ export async function createBook(form: FormData) {
 export async function updateBookMeta(form: FormData) {
   const supabase = await createClient();
   const id = str(form, "id");
+  const title = str(form, "title");
+
+  const { data: cu } = await supabase
+    .from("books")
+    .select("title, slug")
+    .eq("id", id)
+    .maybeSingle();
+
+  // Đổi tên thì sinh lại đường dẫn cho khớp. Chỉ làm khi tên thật sự đổi, để
+  // lần lưu nào cũng không âm thầm đổi link đang phát cho người đọc.
+  const doiTen = !!title && title !== (cu as { title?: string } | null)?.title;
+  const slug = doiTen ? await uniqueSlug(supabase, "books", title, "sach", id) : undefined;
+
   await supabase
     .from("books")
     .update({
-      title: str(form, "title"),
+      title,
+      ...(slug ? { slug } : {}),
       page_ratio: str(form, "page_ratio"),
       cover_url: str(form, "cover_url") || null,
       is_published: form.get("is_published") === "on",
