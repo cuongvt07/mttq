@@ -33,6 +33,14 @@ export type TextElement = {
   lineHeight: number;
   /** bấm vào chữ mở link (bài báo, tài liệu…) */
   href?: string;
+  /**
+   * Màu nền tô sau chữ. Để trống là trong suốt như trước.
+   *
+   * Có mặt để chữ đọc được khi đặt trên ảnh nền nhiều chi tiết — không có nó
+   * thì chữ sáng nằm trên vùng ảnh sáng là mất hút. Trường tuỳ chọn nên mọi
+   * khối chữ đã lưu từ trước giữ nguyên, không đụng gì tới dữ liệu cũ.
+   */
+  bg?: string;
 };
 
 export type ImageElement = {

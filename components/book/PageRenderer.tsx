@@ -65,6 +65,16 @@ export function ElementView({ el }: { el: BookElement }) {
           lineHeight: el.lineHeight,
           whiteSpace: "pre-wrap",
           wordBreak: "break-word",
+          // Nền tô sau chữ. Đệm tính theo em nên co giãn cùng cỡ chữ; chỉ bật
+          // khi có màu để khối chữ cũ giữ nguyên đúng từng dòng như trước.
+          ...(el.bg
+            ? {
+                background: el.bg,
+                padding: "0.14em 0.36em",
+                borderRadius: "0.16em",
+                boxSizing: "border-box" as const,
+              }
+            : null),
         }}
       >
         {el.content}

@@ -15,6 +15,7 @@ import {
   type PageChrome,
   type TextElement,
 } from "@/lib/book-types";
+import { hitGiong, type Giong } from "@/lib/align-guides";
 import { moTaNen, nenAnh } from "@/lib/image-optimize";
 import { createClient } from "@/utils/supabase/client";
 import { saveBookChrome, saveBookPages } from "@/app/admin/books/actions";
@@ -63,18 +64,30 @@ type Drag =
     }
   | { mode: "rotate"; id: string; cx: number; cy: number; start: number; rotation: number };
 
-/**
- * Chọn màu nền tương phản với màu chữ để ô đang gõ lúc nào cũng đọc được.
- * Chữ trắng trên nền trắng là lỗi hay gặp nhất khi soạn trên nền ảnh tối.
- */
-function nenTuongPhan(mauChu: string): string {
-  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(mauChu.trim());
-  if (!m) return "rgba(255,255,255,.94)";
+/** Độ sáng tương đối theo WCAG; null nếu không đọc được mã màu. */
+function doSang(mau: string): number | null {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(mau.trim());
+  if (!m) return null;
   const hex = m[1].length === 3 ? m[1].replace(/./g, (c) => c + c) : m[1];
   const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
-  // độ sáng tương đối theo WCAG
   const f = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-  const L = 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+}
+
+/** Đen hay trắng — cái nào ngược sáng với màu chữ thì chọn cái đó. */
+function mauNguocSang(mauChu: string): string {
+  const L = doSang(mauChu);
+  return L !== null && L > 0.5 ? "#18202c" : "#ffffff";
+}
+
+/**
+ * Nền cho ô đang gõ: chữ trắng trên nền trắng là lỗi hay gặp nhất khi soạn trên
+ * ảnh nền tối. Nếu khối đã có nền riêng thì dùng luôn nền đó cho đúng WYSIWYG.
+ */
+function nenTuongPhan(mauChu: string, nenKhoi?: string): string {
+  if (nenKhoi) return nenKhoi;
+  const L = doSang(mauChu);
+  if (L === null) return "rgba(255,255,255,.94)";
   return L > 0.5 ? "rgba(24,32,44,.92)" : "rgba(255,255,255,.94)";
 }
 
@@ -98,6 +111,8 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
   const [textHeights, setTextHeights] = useState<Record<string, number>>({});
   const [chrome, setChrome] = useState<PageChrome>(book.chrome);
   const [showChrome, setShowChrome] = useState(false);
+  /** đường gióng đang hiện khi kéo khối */
+  const [giong, setGiong] = useState<Giong | null>(null);
 
   const chromeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const past = useRef<BookPage[][]>([]);
@@ -403,11 +418,35 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
       if (d.mode === "move") {
         const nx = d.elX + (p.x - d.startX);
         const ny = d.elY + (p.y - d.startY);
+
+        const els = pages[pageIndex]?.elements ?? [];
+        const dangKeo = els.find((x) => x.id === d.id);
+        const caoCua = (e: BookElement) =>
+          e.type !== "text" ? e.h : (textHeights[e.id] ?? 40);
+        const w = dangKeo?.w ?? 0;
+        const h = dangKeo ? caoCua(dangKeo) : 0;
+
+        const kq = hitGiong(
+          nx,
+          ny,
+          w,
+          h,
+          els.filter((e) => e.id !== d.id).map((e) => ({ x: e.x, y: e.y, w: e.w, h: caoCua(e) })),
+          PAGE_WIDTH,
+          H,
+        );
+
+        // Đường gióng thắng bám lưới: đã thẳng hàng với khối khác rồi thì đừng
+        // để lưới 10px kéo lệch đi mất.
+        const coDoc = kq.giong.doc.length > 0;
+        const coNgang = kq.giong.ngang.length > 0;
+        setGiong(coDoc || coNgang ? kq.giong : null);
+
         patchElement(
           d.id,
           {
-            x: snapOn ? snap(nx) : Math.round(nx),
-            y: snapOn ? snap(ny) : Math.round(ny),
+            x: coDoc ? Math.round(kq.x) : snapOn ? snap(nx) : Math.round(nx),
+            y: coNgang ? Math.round(kq.y) : snapOn ? snap(ny) : Math.round(ny),
           },
           false,
         );
@@ -468,6 +507,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
     };
 
     const onUp = (e: PointerEvent) => {
+      setGiong(null);
       // Bấm rồi thả gần như tại chỗ lên một khối chữ ĐANG được chọn = muốn sửa
       // nội dung. Nhờ xét ở pointerup và đo quãng di chuyển nên vẫn kéo khối
       // bình thường được, không phải bấm hai lần thật nhanh như trước.
@@ -704,6 +744,26 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
         })}
       </div>
 
+      {/* đường gióng — chỉ hiện trong lúc kéo */}
+      {giong
+        ? [
+            ...giong.doc.map((v) => (
+              <span
+                key={`d${v}`}
+                className="pointer-events-none absolute z-30 bg-fuchsia-500"
+                style={{ left: v * scale, top: 0, width: 1, bottom: 0 }}
+              />
+            )),
+            ...giong.ngang.map((v) => (
+              <span
+                key={`n${v}`}
+                className="pointer-events-none absolute z-30 bg-fuchsia-500"
+                style={{ top: v * scale, left: 0, height: 1, right: 0 }}
+              />
+            )),
+          ]
+        : null}
+
       {/* nút xoay + 8 điểm neo của khối đang chọn */}
       {selected && selBox && !editingId ? (
         <>
@@ -803,10 +863,12 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
             wordBreak: "break-word",
             // nền chọn theo độ sáng của màu chữ — chữ trắng trên nền ảnh tối
             // trước đây gõ vào là mất hút vì nền ô luôn màu trắng
-            background: nenTuongPhan(selected.color),
+            background: nenTuongPhan(selected.color, selected.bg),
             outline: "2px solid #1667b8",
-            borderRadius: 2,
-            padding: 0,
+            // khớp đệm với lúc hiển thị, nếu không chữ nhảy vị trí khi bắt đầu gõ
+            ...(selected.bg
+              ? { padding: "0.14em 0.36em", borderRadius: "0.16em", boxSizing: "border-box" as const }
+              : { padding: 0, borderRadius: 2 }),
           }}
         />
       ) : null}
@@ -1078,6 +1140,40 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
                     className={`${O_INPUT} w-20`}
                   />
                 </label>
+                <div className={O_NHO}>
+                  <span>Nền sau chữ</span>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="color"
+                      value={(selected as TextElement).bg ?? "#ffffff"}
+                      onChange={(e) => patchElement(selected.id, { bg: e.target.value })}
+                      title="Chọn màu nền tô sau chữ"
+                      className="h-9 w-12 rounded border border-slate-200 bg-white p-0.5"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        patchElement(selected.id, {
+                          bg: mauNguocSang((selected as TextElement).color),
+                        })
+                      }
+                      title="Tự chọn nền đen hoặc trắng ngược với màu chữ"
+                      className="h-9 cursor-pointer rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold hover:bg-slate-100"
+                    >
+                      Tự tương phản
+                    </button>
+                    {(selected as TextElement).bg ? (
+                      <button
+                        type="button"
+                        onClick={() => patchElement(selected.id, { bg: undefined })}
+                        title="Bỏ nền, để trong suốt"
+                        className="h-9 cursor-pointer rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold hover:bg-slate-100"
+                      >
+                        ✕
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
                 <label className={`${O_NHO} min-w-48`}>
                   <span>Link khi bấm vào</span>
                   <input
