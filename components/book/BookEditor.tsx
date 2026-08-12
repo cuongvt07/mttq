@@ -285,6 +285,23 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
     [commit, pageIndex],
   );
 
+  /**
+   * Khối chữ mới trải hết bề ngang dùng được của trang.
+   *
+   * Lề lấy từ chrome.margin — chính là "lề trong tính từ mép trang" mà sách đã
+   * tự khai báo và người soạn đã chỉnh cho khớp hoạ tiết viền, nên không phải
+   * đoán một con số cứng. Sách hiện tại đang để 60 (một cuốn 52).
+   */
+  const themKhoiChu = () => {
+    const le = Math.max(0, Math.round(chrome.margin ?? 0));
+    const rong = Math.max(80, PAGE_WIDTH - le * 2);
+    // Nếu đầu trang đang bật thì hạ xuống dưới dải đó, khỏi đè lên nhau.
+    const dinh = chrome.header?.enabled
+      ? le + (chrome.header.offset ?? 0) + Math.round(chrome.header.fontSize * 1.2) + 16
+      : le;
+    addElement(newTextElement({ x: le, w: rong, y: dinh }));
+  };
+
   const addElement = (el: BookElement) => {
     toast(el.type === "text" ? "Đã thêm khối chữ" : "Đã thêm ảnh");
     commit((prev) =>
@@ -976,7 +993,7 @@ export default function BookEditor({ book }: { book: BookWithPages }) {
       <div className="order-1 flex min-w-0 min-h-0 flex-col xl:order-2">
         {/* hàng nút chính */}
         <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
-          <button type="button" onClick={() => addElement(newTextElement())} className={NUT}>
+          <button type="button" onClick={themKhoiChu} className={NUT}>
             ➕ Thêm chữ
           </button>
           <button type="button" onClick={() => pickImage(null)} className={NUT}>
