@@ -3,13 +3,20 @@ name: Keep-alive
 # Giữ ấm serverless function trên Vercel và chống Supabase free tier tự pause
 # (Supabase pause project sau 7 ngày không có query).
 #
-# Lambda Vercel ngủ sau ~10-15 phút vắng request, nên 5 phút/lần là đủ.
-# 5 phút cũng là chu kỳ nhỏ nhất GitHub Actions cho phép; lịch có thể trễ vài
-# phút khi hệ thống bận, vẫn nằm trong ngưỡng an toàn.
+# ---------------------------------------------------------------------------
+# ĐANG TẮT LỊCH CHẠY — dự án Vercel đang pause (2026-08-13).
+#
+# Site tắt thì mọi lần ping đều fail, và GitHub gửi mail báo hỏng sau mỗi lần
+# workflow theo lịch thất bại. Bỏ khối schedule đi là hết mail.
+#
+# Bật lại khi chạy site: bỏ dấu # ở hai dòng schedule bên dưới rồi push.
+#   schedule:
+#     - cron: "*/5 * * * *"
+# Lambda Vercel ngủ sau ~10-15 phút vắng request nên 5 phút/lần là đủ; đó cũng
+# là chu kỳ nhỏ nhất GitHub Actions cho phép.
+# ---------------------------------------------------------------------------
 on:
-  schedule:
-    - cron: "*/5 * * * *"
-  workflow_dispatch: # cho phép bấm chạy tay để kiểm tra
+  workflow_dispatch: # chỉ chạy khi bấm tay, không tự chạy theo lịch nữa
 
 # Nếu lần chạy trước còn treo thì huỷ, tránh chồng job.
 concurrency:
